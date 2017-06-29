@@ -1,0 +1,1 @@
+sudo python3 train.py --dataset_dir=/home/zhenheng/datasets/kitti/eigen_process --checkpoint_dir=/home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt_edaw2nd_smoothloss --eval_txt eval_kitti_d2nn2d_4pt_edaw2nd_smoothloss.txt --img_width=416 --img_height=128 --batch_size=4 --smooth_weight=0.5 --explain_reg_weight=0.4 --gpu_id 1
