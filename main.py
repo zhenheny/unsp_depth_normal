@@ -57,23 +57,24 @@ def test_filelist(filelist, split, eval_depth_bool, ckpt_file):
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt_new/model-40249'
 
     sfm = SfMLearner()
-    sfm.setup_inference(img_height, img_width, mode=mode)
+    with tf.variable_scope("training"):
+        sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()]) 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        with tf.name_scope("training"):
-            saver.restore(sess, ckpt_file)
-            npyfile = []
-            for file in filelist:
-                resize_ratio = img_height / 435.0
-                intrinsic = np.expand_dims(np.array(intrinsic_matrixes[file.split("/")[-1].split("_")[0]])[[0,4,2,5]] * resize_ratio, axis=0)
-                I = scipy.misc.imread(file)
-                I = scipy.misc.imresize(I, (img_height, img_width))
+        # with tf.name_scope("training"):
+        saver.restore(sess, ckpt_file)
+        npyfile = []
+        for file in filelist:
+            resize_ratio = img_height / 435.0
+            # intrinsic = np.expand_dims(np.array(intrinsic_matrixes[file.split("/")[-1].split("_")[0]])[[0,4,2,5]] * resize_ratio, axis=0)
+            I = scipy.misc.imread(file)
+            I = scipy.misc.imresize(I, (img_height, img_width))
 
-                # pred = sfm.inference(I[None,:,:,:], intrinsic, sess, mode=mode)
-                pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
-                npyfile.append(pred['depth'][0,:,:,0])
+            # pred = sfm.inference(I[None,:,:,:], intrinsic, sess, mode=mode)
+            pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
+            npyfile.append(pred['depth'][0,:,:,0])
 
     if eval_depth_bool:
         gt_depths, pred_depths, gt_disparities = load_depths(npyfile, split, root_img_path)
@@ -86,7 +87,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Evaluation on the KITTI dataset')
     parser.add_argument('--split', type=str, help='data split, kitti or eigen', required=True)
-    parser.add_argument('--gpu_id', type=str, help='gpu id for evaluation', default="1")
+    parser.add_argument('--gpu_id', type=str, help='gpu id for evaluation', default="0")
     parser.add_argument('--ckpt_file', type=str, help='model checkpoint', required=True, default='models/model-145248')
     parser.add_argument('--type',  type=str, help='test type, img or filelist', default='filelist')
     parser.add_argument('--eval_depth_bool', type=bool, help="evaluate the depth estimation based on standard metrics", default=True)
@@ -111,7 +112,7 @@ if __name__ == "__main__":
             with open(test_file_list) as f:
                 for line in f:
                     filelist.append("/home/zhenheng/datasets/kitti/"+line.rstrip())
-            test_filelist(filelist, args.eval_depth)
+            test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
     else:
         filename = "000001_10.png"
         test_image(filename)

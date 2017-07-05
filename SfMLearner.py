@@ -14,6 +14,7 @@ sys.path.append("../eval")
 from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
+from evaluate_normal import *
 
 class SfMLearner(object):
     def __init__(self):
@@ -82,6 +83,7 @@ class SfMLearner(object):
             pixel_loss = 0
             exp_loss = 0
             smooth_loss = 0
+            normal_smooth_loss = 0
             tgt_image_all = []
             src_image_stack_all = []
             proj_image_stack_all = []
@@ -102,8 +104,6 @@ class SfMLearner(object):
                 curr_src_image_stack = tf.image.resize_bilinear(src_image_stack, 
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
 
-                print ("the shape of curr_tgt_image")
-                print (curr_tgt_image.get_shape().as_list())
 
                 ## depth2normal and normal2depth at each scale level
                 intrinsic_mtx = proj_cam2pix[:,s,:,:]
@@ -112,29 +112,37 @@ class SfMLearner(object):
 
                 pred_normal = depth2normal_layer_batch(pred_depth_tensor, intrinsics, depth_inverse)
 
-                # pred_depth2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
-                # pred_depth2 = tf.expand_dims(pred_depth2, -1)
-                # # normal depth2 to avoid corner case of preddepth2=0
-                # pred_disp2 = 1.0 / (pred_depth2 - tf.reduce_min(pred_depth2) + 1e-2)
+                pred_depth2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
+                pred_depth2 = tf.expand_dims(pred_depth2, -1)
+                # normal depth2 to avoid corner case of preddepth2=0
+                pred_disp2 = 1.0 / (pred_depth2 - tf.reduce_min(pred_depth2) + 1e-2)
 
                 # # print (pred_depth2.shape)
 
-                pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
+                # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
 
                 if opt.smooth_weight > 0:
-                    for i in range(len(pred_depths2)):
-                        pred_disp2 = tf.expand_dims(1.0 / (pred_depths2[i] - tf.reduce_min(pred_depths2[i]) + 1e-2), -1)
-                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                        self.compute_smooth_loss(pred_disp2, curr_tgt_image))
-                        # self.compute_smooth_loss(pred_disp2))
-                    smooth_loss /= len(pred_depths2)
+                    # for i in range(len(pred_depths2)):
+                    #     pred_disp2 = tf.expand_dims(1.0 / (pred_depths2[i] - tf.reduce_min(pred_depths2[i]) + 1e-2), -1)
+                    #     smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                    #     self.compute_edge_aware_smooth_loss(pred_disp2, curr_tgt_image))
+                    #     # self.compute_smooth_loss(pred_disp2))
+                    # smooth_loss /= len(pred_depths2)
                     
                     pred_normals.append(pred_normal)
                     pred_disps2.append(pred_disp2)
 
-                    # smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                    #     self.compute_smooth_loss(pred_disp[s]))
-                    #     # self.compute_smooth_loss(pred_disp2[:, 2:-2, :-4, :]))
+                    smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                        # self.compute_edge_aware_smooth_loss(pred_disp[s]))
+                        # self.compute_smooth_loss(pred_disp2[:, 2:-2, :-4,]))
+                        # self.compute_smooth_loss(pred_disp2))
+                        self.compute_smooth_loss_multiscale(pred_disp2))
+                        # self.compute_edge_aware_smooth_loss(pred_disp2, curr_tgt_image))
+                        # self.compute_edge_aware_smooth_loss(pred_disp2[:, 2:-2, :-4,], curr_tgt_image[:, 2:-2, :-4,]))
+
+                if opt.normal_smooth_weight > 0:
+                    normal_smooth_loss += tf.multiply(opt.normal_smooth_weight/(2**s), \
+                        self.compute_smooth_loss(pred_normal))
 
                 for i in range(opt.num_source):
                     # Cross-entropy loss as regularization for the 
@@ -150,40 +158,39 @@ class SfMLearner(object):
 
                     # Inverse warp the source image to the target image frame
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
-                    # curr_proj_image = inverse_warp(
-                    #     curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                    #     pred_depths2[0], 
-                    #     # pred_depth[s], 
-                    #     pred_poses[:,i,:], 
-                    #     proj_cam2pix[:,s,:,:], 
-                    #     proj_pix2cam[:,s,:,:])
-                    # curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
-
-                    # # Photo-consistency loss weighted by explainability
-                    # if opt.explain_reg_weight > 0:
-                    #     pixel_loss += tf.reduce_mean(curr_proj_error * \
-                    #         tf.expand_dims(curr_exp[:,:,:,1], -1))
-                    # else:
-                    #     pixel_loss += tf.reduce_mean(curr_proj_error) 
-
-                    # for j in range(len(pred_depths2)):
-
-                    for j in range(len(pred_depths2)):
-                        curr_proj_image = inverse_warp(
+                    curr_proj_image = inverse_warp(
                         curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                        pred_depths2[j], 
+                        pred_depth2, 
                         # pred_depth[s], 
                         pred_poses[:,i,:], 
                         proj_cam2pix[:,s,:,:], 
                         proj_pix2cam[:,s,:,:])
-                        curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
+                    curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
                     # Photo-consistency loss weighted by explainability
-                        if opt.explain_reg_weight > 0:
-                            pixel_loss += tf.reduce_mean(curr_proj_error * \
-                                tf.expand_dims(curr_exp[:,:,:,1], -1))
-                        else:
-                            pixel_loss += tf.reduce_mean(curr_proj_error)
+                    if opt.explain_reg_weight > 0:
+                        pixel_loss += tf.reduce_mean(curr_proj_error * \
+                            tf.expand_dims(curr_exp[:,:,:,1], -1))
+                    else:
+                        pixel_loss += tf.reduce_mean(curr_proj_error) 
+
+
+                    # for j in range(len(pred_depths2)):
+                    #     curr_proj_image = inverse_warp(
+                    #     curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
+                    #     pred_depths2[j], 
+                    #     # pred_depth[s], 
+                    #     pred_poses[:,i,:], 
+                    #     proj_cam2pix[:,s,:,:], 
+                    #     proj_pix2cam[:,s,:,:])
+                    #     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
+
+                    # # Photo-consistency loss weighted by explainability
+                    #     if opt.explain_reg_weight > 0:
+                    #         pixel_loss += tf.reduce_mean(curr_proj_error * \
+                    #             tf.expand_dims(curr_exp[:,:,:,1], -1))
+                    #     else:
+                    #         pixel_loss += tf.reduce_mean(curr_proj_error)
                     # pixel_loss /= len(pred_depths2)
 
                     # Prepare images for tensorboard summaries
@@ -206,7 +213,7 @@ class SfMLearner(object):
                 proj_error_stack_all.append(proj_error_stack)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
-            total_loss = pixel_loss + smooth_loss + exp_loss
+            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss
         
 
         with tf.name_scope("train_op"):
@@ -270,6 +277,24 @@ class SfMLearner(object):
                tf.reduce_mean(tf.abs(dydx)) + \
                tf.reduce_mean(tf.abs(dy2))
 
+    def compute_smooth_loss_multiscale(self, pred_disp):
+        def gradient(pred, scale):
+            D_dy = pred[:, scale:, :, :] - pred[:, :(-1 * scale), :, :]
+            D_dx = pred[:, :, scale:, :] - pred[:, :, :(-1 * scale), :]
+            return D_dx, D_dy
+        scales = [1,3,5]
+        loss = 0
+        for scale in scales:
+            dx, dy = gradient(pred_disp, scale)
+            dx2, dxdy = gradient(dx, scale)
+            dydx, dy2 = gradient(dy, scale)
+            loss += tf.reduce_mean(tf.abs(dx2)) + \
+               tf.reduce_mean(tf.abs(dxdy)) + \
+               tf.reduce_mean(tf.abs(dydx)) + \
+               tf.reduce_mean(tf.abs(dy2))
+
+        return loss / len(scales)
+
     def gradient_x(self, img):
         gx = img[:,:,:-1,:] - img[:,:,1:,:]
         return gx
@@ -304,9 +329,7 @@ class SfMLearner(object):
 
         smoothness_loss = tf.reduce_mean(tf.abs(smoothness_x)) + tf.reduce_mean(tf.abs(smoothness_y))
         smoothness_loss_2nd = tf.reduce_mean(tf.abs(smoothness_dx2)) + \
-                             tf.reduce_mean(tf.abs(smoothness_dxdy)) + \
-                             tf.reduce_mean(tf.abs(smoothness_dydx)) + \
-                             tf.reduce_mean(tf.abs(smoothness_dy2))
+                              tf.reduce_mean(tf.abs(smoothness_dy2))
         return smoothness_loss_2nd
 
         # disp_gradients_x = [self.gradient_x(d) for d in disp]
@@ -392,7 +415,7 @@ class SfMLearner(object):
                 print("Resume training from previous checkpoint")
                 checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
                 self.saver.restore(sess, checkpoint)
-            for step in range(1, opt.max_steps):
+            for step in range(0, opt.max_steps):
                 start_time = time.time()
                 fetches = {
                     "train": self.train_op,
@@ -430,22 +453,45 @@ class SfMLearner(object):
                         break
 
                 if step % opt.eval_freq == 0:
-                    modes = ["eigen", "kitti"]
-                    root_img_path = "/home/zhenheng/datasets/kitti/"
-                    test_result = []
-                    for mode in modes[1:]:
-                        filelist_path = root_img_path+"test_files_"+mode+".txt"
-                        with open(filelist_path) as f:
-                            for file in f:
-                                img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
-                                img = np.expand_dims(img, axis=0)
-                                test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img})))
-                        
-                        print ("Evaluation at iter ["+str(step)+"] "+mode)
-                        gt_depths, pred_depths, gt_disparities = load_depths(test_result, mode, root_img_path)
-                        abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, mode)
-                        with open("../eval/"+opt.eval_txt,"a") as write_file:
-                            write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
+                    with tf.name_scope("evaluation"):
+                        modes = ["eigen", "kitti"]
+                        root_img_path = "/home/zhenheng/datasets/kitti/"
+                        normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+                        input_intrinsics = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl",'rb'))
+                        for mode in modes:
+                            test_result_depth, test_result_normal = [], []
+                            filelist_path = root_img_path+"test_files_"+mode+".txt"
+                            with open(filelist_path) as f:
+                                for file in f:
+                                    if file.split("/")[-1].split("_")[0] in input_intrinsics:
+                                        input_intrinsic = np.array([input_intrinsics[file.split("/")[-1].split("_")[0]]])[:,[0,4,2,5]]
+                                    else:
+                                        input_intrinsic = [[opt.img_width, opt.img_height, 0.5*opt.img_width, 0.5*opt.img_height]]
+                                    img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
+                                    img = np.expand_dims(img, axis=0)
+                                    # test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img, self.input_intrinsics: intrinsic})))
+                                    pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+                                    test_result_depth.append(np.squeeze(pred_depth2_np))
+                                    pred_normal_np = np.squeeze(pred_normal_np)
+                                    pred_normal_np[:,:,1] *= -1
+                                    pred_normal_np[:,:,2] *= -1
+                                    pred_normal_np = (pred_normal_np + 1.0) / 2.0
+                                    test_result_normal.append(pred_normal_np)
+
+                            ## depth evaluation
+                            print ("Evaluation at iter ["+str(step)+"] "+mode)
+                            gt_depths, pred_depths, gt_disparities = load_depths(test_result_depth, mode, root_img_path)
+                            abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, mode)
+
+                            ## normal evaluation
+                            if mode == "kitti":
+                                pred_normals, gt_normals = load_normals(test_result_normal, mode, normal_gt_path)
+                                dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals)
+
+                            with open("../eval/"+opt.eval_txt,"a") as write_file:
+                                write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
+                                if mode == "kitti":
+                                    write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
 
                 if step % opt.save_latest_freq == 0:
                     self.save(sess, opt.checkpoint_dir, 'latest')
@@ -453,24 +499,30 @@ class SfMLearner(object):
                 if step % (opt.save_latest_freq * 2) == 0:
                     self.save(sess, opt.checkpoint_dir, gs)
 
-    def build_depth2_test_graph(self):
+    def build_depth_normal_test_graph(self):
         input_uint8 = tf.placeholder(tf.uint8, [self.batch_size, 
                     self.img_height, self.img_width, 3], name='raw_input')
         intrinsics = tf.placeholder(tf.float32, [self.batch_size, 4])
 
         input_mc = self.preprocess_image(input_uint8)
+        # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
             pred_disp, depth_net_endpoints = disp_net(input_mc)
-            pred_depth = [1./disp for disp in pred_disp]
-            print ("shape of pred depth test")   
-
+            pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
-            pred_depth2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics)
+            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics)
+            pred_depths2_avg = pred_depths2
+            # pred_depths2_avg = tf.reduce_mean([pred_depths2[i] for i in range(len(pred_depths2))], axis=0)
+            print("shape of pred_depths2_avg")
+            print(pred_depths2_avg.shape)
+            print("shape of pred_normal")
+            print(pred_normal.shape)
         # pred_depth2 = 1.0 / pred_dsip2
         self.inputs = input_uint8
         self.input_intrinsics = intrinsics
         self.pred_depth_test = pred_depth[0]
-        self.pred_depth2_test = tf.expand_dims(pred_depth2, axis=-1)
+        self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
+        self.pred_normal_test = pred_normal
         self.pred_disp_test = pred_disp
         self.depth_epts = depth_net_endpoints
 
@@ -480,13 +532,10 @@ class SfMLearner(object):
         # intrinscs = tf.placeholder(tf.float32, [self.batch_size, 4])
 
         input_mc = self.preprocess_image(input_uint8)
-        with tf.variable_scope('training'):
+        with tf.variable_scope('training', reuse=True):
             with tf.name_scope("depth_prediction"):
                 pred_disp, depth_net_endpoints = disp_net(input_mc)
                 pred_depth = [1./disp for disp in pred_disp]
-        #     pred_normal = depth2normal_layer_batch(pred_depth[0], intrinsics, False)
-        #     pred_depth2 = normal2depth_layer_batch(pred_depth[0], tf.squeeze(pred_normal), intrinsics)
-        # pred_depth2 = 1.0 / pred_dsip2
 
         self.inputs = input_uint8
         self.pred_depth_test = pred_depth[0]
@@ -513,7 +562,7 @@ class SfMLearner(object):
         self.mode = mode
         self.batch_size = batch_size
         if self.mode == 'depth':
-            self.build_depth_test_graph()
+            self.build_depth_normal_test_graph()
 
     def inference(self, inputs, intrinsics, sess, mode='depth'):
         fetches = {}

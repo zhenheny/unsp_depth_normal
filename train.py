@@ -12,6 +12,7 @@ flags.DEFINE_string("checkpoint_dir", "./checkpoints/", "Directory name to save 
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam")
 flags.DEFINE_float("beta1", 0.9, "Momentum term of adam")
 flags.DEFINE_float("smooth_weight", 0.0, "Weight for smoothness")
+flags.DEFINE_float("normal_smooth_weight", 0.0, "Weight for normal map smoothness")
 flags.DEFINE_float("explain_reg_weight", 0.2, "Weight for explanability regularization")
 flags.DEFINE_integer("batch_size", 4, "The size of of a sample batch")
 flags.DEFINE_integer("img_height", 128, "Image height")
