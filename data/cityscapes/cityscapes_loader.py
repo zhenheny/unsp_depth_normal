@@ -43,8 +43,9 @@ class cityscapes_loader(object):
         return frames
 
     def get_train_example_with_idx(self, tgt_idx):
+        tgt_timestamp = self.frames[tgt_idx]
         tgt_frame_id = self.frames[tgt_idx]
-        if not self.is_valid_example(tgt_frame_id):
+        if not self.is_valid_example(tgt_timestamp):
             return False
         example = self.load_example(self.frames[tgt_idx])
         return example

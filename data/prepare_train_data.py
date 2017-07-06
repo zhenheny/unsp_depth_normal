@@ -8,7 +8,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_dir", type=str, required=True, help="where the dataset is stored")
-parser.add_argument("--dataset_name", type=str, required=True, choices=["kitti_raw_eigen", "kitti_raw_stereo", "kitti_odom", "cityscapes"])
+parser.add_argument("--dataset_name", type=str, required=True, choices=["kitti_raw_eigen", "kitti_raw_stereo", "kitti_odom", "cityscapes", "nyuv2"])
 parser.add_argument("--dump_root", type=str, required=True, help="Where to dump the data")
 parser.add_argument("--seq_length", type=int, required=True, help="Length of each training sequence")
 parser.add_argument("--img_height", type=int, default=128, help="image height")
@@ -85,6 +85,13 @@ def main():
                                         img_width=args.img_width,
                                         seq_length=args.seq_length)
 
+    if args.dataset_name == "nyuv2":
+        from nyuv2.nyuv2_loader import nyuv2_loader
+        data_loader = nyuv2_loader(args.dataset_dir,
+                                       img_height=args.img_height,
+                                       img_width=args.img_width,
+                                       seq_length=args.seq_length)
+
     Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(data_loader.num_train))
 
     # Split into train/val
@@ -96,7 +103,7 @@ def main():
                 if not os.path.isdir(args.dump_root + '/%s' % s):
                     continue
                 imfiles = glob(os.path.join(args.dump_root, s, '*.jpg'))
-                frame_ids = [os.path.basename(fi).split('.')[0] for fi in imfiles]
+                frame_ids = [os.path.basename(fi).split('.jpg')[0] for fi in imfiles]
                 for frame in frame_ids:
                     if np.random.random() < 0.1:
                         vf.write('%s %s\n' % (s, frame))

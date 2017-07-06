@@ -1,0 +1,1 @@
+python prepare_train_data.py --dataset_dir=/home/zhenheng/datasets/nyuv2/ --dataset_name='nyuv2' --dump_root=/home/zhenheng/datasets/nyuv2/data_format_train/ --seq_length=3 --img_width=640 --img_height=480 --num_threads=4
