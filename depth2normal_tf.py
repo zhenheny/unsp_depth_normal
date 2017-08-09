@@ -60,7 +60,7 @@ def depth2normal_layer(depth_map, intrinsics, inverse):
     normal_vector = tf.reduce_sum(tf.concat(0, [[normals0], [normals1], [normals2], [normals3]]),0)
     normal_vector = normalize_l2(normal_vector)
     normal_map = tf.reshape(tf.squeeze(normal_vector), [kitti_shape[0]-2*nei]+[kitti_shape[1]-2*nei]+[3])
-    print (normal_map.get_shape().as_list())
+    # print (normal_map.get_shape().as_list())
     # print tf.expand_dims(tf.cast(mask[nei:-nei, nei:-nei], tf.float32)).get_shape().as_list()
     normal_map *= tf.tile(tf.expand_dims(tf.cast(mask[nei:-nei, nei:-nei], tf.float32), 2), [1,1,3])
     normal_map = tf.pad(normal_map, [[nei, nei], [nei, nei], [0,0]] ,"CONSTANT")

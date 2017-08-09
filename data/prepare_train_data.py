@@ -9,11 +9,13 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_dir", type=str, required=True, help="where the dataset is stored")
 parser.add_argument("--dataset_name", type=str, required=True, choices=["kitti_raw_eigen", "kitti_raw_stereo", "kitti_odom", "cityscapes", "nyuv2"])
-parser.add_argument("--dump_root", type=str, required=True, help="Where to dump the data")
+# parser.add_argument("--dump_root", type=str, required=True, help="Where to dump the data")
 parser.add_argument("--seq_length", type=int, required=True, help="Length of each training sequence")
 parser.add_argument("--img_height", type=int, default=128, help="image height")
 parser.add_argument("--img_width", type=int, default=416, help="image width")
 parser.add_argument("--num_threads", type=int, default=4, help="number of threads to use")
+parser.add_argument("--sample_gap", type=int, default=1, help="gap between two warping frames")
+parser.add_argument("--subset", type=str, default="", help="subset of dataset scenes that contain the keyword")
 args = parser.parse_args()
 
 def concat_image_seq(seq):
@@ -36,7 +38,8 @@ def dump_example(n):
     fy = intrinsics[1, 1]
     cx = intrinsics[0, 2]
     cy = intrinsics[1, 2]
-    dump_dir = os.path.join(args.dump_root, example['folder_name'])
+    if args.subset != "":
+        dump_dir = os.path.join(args.dump_root+"/", example['folder_name'])
     # if not os.path.isdir(dump_dir):
     #     os.makedirs(dump_dir, exist_ok=True)
     try: 
@@ -51,6 +54,8 @@ def dump_example(n):
         f.write('%f,0.,%f,0.,%f,%f,0.,0.,1.' % (fx, cx, fy, cy))
 
 def main():
+    dump_root = args.dataset_dir+"/data_format_train_gap"+str(args.sample_gap)+"_"+args.subset
+    args.dump_root = dump_root
     if not os.path.exists(args.dump_root):
         os.makedirs(args.dump_root)
 
@@ -90,15 +95,17 @@ def main():
         data_loader = nyuv2_loader(args.dataset_dir,
                                        img_height=args.img_height,
                                        img_width=args.img_width,
-                                       seq_length=args.seq_length)
+                                       seq_length=args.seq_length,
+                                       sample_gap=args.sample_gap,
+                                       subset=args.subset)
 
-    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(data_loader.num_train))
+    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(20000,data_loader.num_train))
 
     # Split into train/val
     np.random.seed(8964)
     subfolders = os.listdir(args.dump_root)
-    with open(args.dump_root + 'train.txt', 'w') as tf:
-        with open(args.dump_root + 'val.txt', 'w') as vf:
+    with open(args.dump_root + '/train.txt', 'w') as tf:
+        with open(args.dump_root + '/val.txt', 'w') as vf:
             for s in subfolders:
                 if not os.path.isdir(args.dump_root + '/%s' % s):
                     continue

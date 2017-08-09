@@ -5,8 +5,16 @@ import math
 import random
 import numpy as np
 import tensorflow as tf
+import pickle
+import sys
 from nets import *
 from utils import *
+sys.path.insert(0, "/home/zhenheng/works/unsp_depth_normal/depth2normal/")
+sys.path.append("../eval")
+from depth2normal_tf import *
+from normal2depth_tf import *
+from evaluate_kitti import *
+from evaluate_normal import *
 
 class SfMLearner(object):
     def __init__(self):
@@ -234,7 +242,12 @@ class SfMLearner(object):
         # TODO: currently fixed to 4
         opt.num_scales = 4
         self.opt = opt
-        self.build_train_graph()
+
+        with tf.variable_scope("training"):
+            self.build_train_graph()
+        with tf.variable_scope("training", reuse=True):
+            self.setup_inference(opt.img_height, opt.img_width, "depth")
+
         self.collect_summaries()
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
@@ -284,6 +297,53 @@ class SfMLearner(object):
                 if step % opt.steps_per_epoch == 0:
                     self.save(sess, opt.checkpoint_dir, gs)
 
+                if step % opt.eval_freq == 0:
+                    with tf.name_scope("evaluation"):
+                        dataset_name = opt.dataset_dir.split("/")[-2]
+
+                        ## evaluation for kitti dataset
+                        if dataset_name == "kitti":
+                            modes = ["eigen", "kitti"]
+                            root_img_path = "/home/zhenheng/datasets/kitti/"
+                            normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+                            input_intrinsics = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl",'rb'))
+                            with open("../eval/"+opt.eval_txt,"a") as write_file:
+                                    write_file.write("Evaluation at iter [" + str(step)+"]: \n")
+                            for mode in modes:
+                                test_result_depth, test_result_normal = [], []
+                                test_fn = root_img_path+"test_files_"+mode+".txt"
+                                with open(test_fn) as f:
+                                    for file in f:
+                                        if file.split("/")[-1].split("_")[0] in input_intrinsics:
+                                            input_intrinsic = np.array([input_intrinsics[file.split("/")[-1].split("_")[0]]])[:,[0,4,2,5]]
+                                        else:
+                                            input_intrinsic = [[opt.img_width, opt.img_height, 0.5*opt.img_width, 0.5*opt.img_height]]
+                                        img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
+                                        img = np.expand_dims(img, axis=0)
+                                        # test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img, self.input_intrinsics: intrinsic})))
+                                        pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+                                        test_result_depth.append(np.squeeze(pred_depth2_np))
+                                        pred_normal_np = np.squeeze(pred_normal_np)
+                                        pred_normal_np[:,:,1] *= -1
+                                        pred_normal_np[:,:,2] *= -1
+                                        pred_normal_np = (pred_normal_np + 1.0) / 2.0
+                                        test_result_normal.append(pred_normal_np)
+
+                                ## depth evaluation
+                                print ("Evaluation at iter ["+str(step)+"] "+mode)
+                                gt_depths, pred_depths, gt_disparities = load_depths(test_result_depth, mode, root_img_path, test_fn)
+                                abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, mode)
+
+                                ## normal evaluation
+                                if mode == "kitti":
+                                    pred_normals, gt_normals = load_normals(test_result_normal, mode, normal_gt_path, test_fn)
+                                    dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals)
+
+                                with open("../eval/"+opt.eval_txt,"a") as write_file:
+                                    write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
+                                    if mode == "kitti":
+                                        write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
+
     def build_depth_test_graph(self):
         input_uint8 = tf.placeholder(tf.uint8, [self.batch_size, 
                     self.img_height, self.img_width, 3], name='raw_input')
@@ -293,7 +353,34 @@ class SfMLearner(object):
             pred_depth = [1./disp for disp in pred_disp]
         pred_depth = pred_depth[0]
         self.inputs = input_uint8
-        self.pred_depth = pred_depth
+        self.pred_depth_test = pred_depth
+        self.depth_epts = depth_net_endpoints
+
+    def build_depth_normal_test_graph(self):
+        input_uint8 = tf.placeholder(tf.uint8, [self.batch_size, 
+                    self.img_height, self.img_width, 3], name='raw_input')
+        intrinsics = tf.placeholder(tf.float32, [self.batch_size, 4])
+
+        input_mc = self.preprocess_image(input_uint8)
+        # with tf.variable_scope('training', reuse=True):
+        with tf.name_scope("depth_prediction"):
+            pred_disp, depth_net_endpoints = disp_net(input_mc)
+            pred_depth = [1./disp for disp in pred_disp]   
+            pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
+            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics)
+            pred_depths2_avg = pred_depths2
+            # pred_depths2_avg = tf.reduce_mean([pred_depths2[i] for i in range(len(pred_depths2))], axis=0)
+            print("shape of pred_depths2_avg")
+            print(pred_depths2_avg.shape)
+            print("shape of pred_normal")
+            print(pred_normal.shape)
+        # pred_depth2 = 1.0 / pred_dsip2
+        self.inputs = input_uint8
+        self.input_intrinsics = intrinsics
+        self.pred_depth_test = pred_depth[0]
+        self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
+        self.pred_normal_test = pred_normal
+        self.pred_disp_test = pred_disp
         self.depth_epts = depth_net_endpoints
 
     def preprocess_image(self, image):
@@ -316,12 +403,12 @@ class SfMLearner(object):
         self.mode = mode
         self.batch_size = batch_size
         if self.mode == 'depth':
-            self.build_depth_test_graph()
+            self.build_depth_normal_test_graph()
 
     def inference(self, inputs, sess, mode='depth'):
         fetches = {}
         if mode == 'depth':
-            fetches['depth'] = self.pred_depth
+            fetches['depth'] = self.pred_depth_test
         results = sess.run(fetches, feed_dict={self.inputs:inputs})
         return results
 

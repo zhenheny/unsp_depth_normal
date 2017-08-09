@@ -10,10 +10,12 @@ class nyuv2_loader(object):
                  dataset_dir,
                  split='train',
                  crop_bottom=False, # Get rid of the car logo
-                 # sample_gap=2,  # Sample every two frames to match KITTI frame rate
+                 scene_num=4,
                  img_height=171, 
                  img_width=416,
-                 seq_length=5):
+                 seq_length=5,
+                 sample_gap=5,
+                 subset=""):  # Sample every two frames to match KITTI frame rate
         self.dataset_dir = dataset_dir
         self.split = split
         # Crop out the bottom 25% of the image to remove the car logo
@@ -21,6 +23,9 @@ class nyuv2_loader(object):
         self.img_height = img_height
         self.img_width = img_width
         self.seq_length = seq_length
+        self.sample_gap = sample_gap
+        self.subset = subset
+        self.scene_num = scene_num
         assert seq_length % 2 != 0, 'seq_length must be odd!'
         self.frames = self.collect_frames(split)
         self.num_frames = len(self.frames)
@@ -31,11 +36,20 @@ class nyuv2_loader(object):
         print('Total frames collected: %d' % self.num_frames)
         
     def collect_frames(self, split):
+        counter = {}
         img_dir = self.dataset_dir + '/data/'
-        scene_list = os.listdir(img_dir)
+        # scene_list = os.listdir(img_dir)
+        # scene_list = np.loadtxt(self.dataset_dir+"test_scenes.txt", dtype="str")
+        subset = self.subset
+        scene_list = glob(img_dir + subset+"*")
         frames = []
         for scene in scene_list:
-            img_files = glob(img_dir + scene + '/*.ppm')
+            # if scene.split("_")[0] not in counter:
+            #     counter[scene.split("_")[0]] = 1
+            # else: counter[scene.split("_")[0]] += 1
+            # if counter[scene.split("_")[0]] > self.scene_num:
+            #     continue
+            img_files = glob(img_dir + scene.split("/")[-1] + '/*.ppm')
             img_files.sort()
             for f in img_files:
                 frames.append(f)
@@ -60,8 +74,8 @@ class nyuv2_loader(object):
     def is_valid_example(self, tgt_idx):
         tgt_frame_fn = self.frames[tgt_idx]
         tgt_scene = tgt_frame_fn.split("/")[-2]
-        half_offset = int((self.seq_length - 1)/2)
-        for o in range(-half_offset, half_offset + 1):
+        half_offset = int((self.seq_length - 1)/2 * self.sample_gap)
+        for o in range(-half_offset, half_offset + 1, self.sample_gap):
             if tgt_idx + o >= len(self.frames):
                 return False
             curr_frame_fn = self.frames[tgt_idx + o]
@@ -73,10 +87,10 @@ class nyuv2_loader(object):
         return True
 
     def load_image_sequence(self, tgt_idx, seq_length, crop_bottom):
-        half_offset = int((seq_length - 1)/2)
+        half_offset = int((seq_length - 1)/2 * self.sample_gap)
         image_seq = []
-        for o in range(-half_offset, half_offset + 1):
-            curr_frame_fn = self.frames[tgt_idx]
+        for o in range(-half_offset, half_offset + 1, self.sample_gap):
+            curr_frame_fn = self.frames[tgt_idx + o]
             curr_img = scipy.misc.imread(curr_frame_fn)
             if curr_img.shape == ():
                 return False, [], []
