@@ -16,6 +16,7 @@ flags.DEFINE_float("normal_smooth_weight", 0.0, "Weight for normal map smoothnes
 flags.DEFINE_float("img_grad_weight", 0.0, "Weight for image gradient warping")
 flags.DEFINE_float("explain_reg_weight", 0.2, "Weight for explanability regularization")
 flags.DEFINE_float("occ_mask", 0, "occlusion mask")
+flags.DEFINE_float("depth_consistency", 0, "if set to 1, there is a depth consistency loss")
 flags.DEFINE_integer("batch_size", 4, "The size of of a sample batch")
 flags.DEFINE_integer("img_height", 128, "Image height")
 flags.DEFINE_integer("img_width", 416, "Image width")
