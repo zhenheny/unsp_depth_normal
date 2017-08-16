@@ -139,7 +139,8 @@ class SfMLearner(object):
 
                     smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_disp[s]))
-                        self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
+                        self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
+                        # self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
                         # self.compute_smooth_loss(pred_disp2))
                         # self.compute_smooth_loss_multiscale(pred_disp2))
                         # self.compute_edge_aware_smooth_loss(pred_disp2, curr_tgt_image))
@@ -147,7 +148,8 @@ class SfMLearner(object):
 
                 if opt.normal_smooth_weight > 0:
                     normal_smooth_loss += tf.multiply(opt.normal_smooth_weight/(2**s), \
-                        self.compute_smooth_loss(pred_normal))
+                        self.compute_edge_aware_smooth_loss(pred_normal[:,1:-1,1:-1,:], curr_tgt_image[:,1:-1,1:-1,:]))
+                        # self.compute_smooth_loss(pred_normal[:, 1:-1, 1:-1, :]))
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
@@ -228,10 +230,6 @@ class SfMLearner(object):
                         img_grad_loss += tf.reduce_mean(curr_proj_error_grad_y * \
                             tf.expand_dims(curr_exp[:,:,:,1], -1)[:,1:-2,1:-1,:])
                         img_grad_loss *= opt.img_grad_weight
-                    # else:
-                    #     img_grad_loss += tf.reduce_mean(curr_proj_error_grad_x)
-                    #     img_grad_loss += tf.reduce_mean(curr_proj_error_grad_y)
-
 
                     # for j in range(len(pred_depths2)):
                     #     curr_proj_image = inverse_warp(
@@ -387,14 +385,14 @@ class SfMLearner(object):
             D_dy = pred[:, 1:, :, :] - pred[:, :-1, :, :]
             D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
             return D_dx, D_dy
-
+        alpha = 10
         disp_gradients_x, disp_gradients_y = gradient(disp)
         dx2, dxdy = gradient(disp_gradients_x)
         dydx, dy2 = gradient(disp_gradients_y)
         image_gradients_x, image_gradients_y = gradient(image)
 
-        weights_x = tf.exp(-tf.reduce_mean(tf.abs(image_gradients_x), 3, keep_dims=True))
-        weights_y = tf.exp(-tf.reduce_mean(tf.abs(image_gradients_y), 3, keep_dims=True))
+        weights_x = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(image_gradients_x), 3, keep_dims=True))
+        weights_y = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(image_gradients_y), 3, keep_dims=True))
 
         smoothness_x = disp_gradients_x * weights_x
         smoothness_y = disp_gradients_y * weights_y
@@ -492,8 +490,11 @@ class SfMLearner(object):
             print("parameter_count =", sess.run(parameter_count))
             if opt.continue_train:
                 print("Resume training from previous checkpoint")
-                checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
-                checkpoint = opt.checkpoint_dir + "/model.latest"
+                if opt.checkpoint_continue == "":
+                    checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
+                    checkpoint = opt.checkpoint_dir + "/model.latest"
+                else:
+                    checkpoint = opt.checkpoint_continue 
                 self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
                 start_time = time.time()

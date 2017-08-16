@@ -1,0 +1,316 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (MiKTeX 2.9.6350) (preloaded format=pdflatex 2017.7.31)  15 AUG 2017 18:32
+entering extended mode
+**./formatting-instructions-latex-2018.tex
+(formatting-instructions-latex-2018.tex
+LaTeX2e <2017-04-15>
+Babel <3.12> and hyphenation patterns for 1 language(s) loaded.
+(/usr/local/share/miktex-texmf/tex/latex/base/article.cls
+Document Class: article 2014/09/29 v1.4h Standard LaTeX document class
+(/usr/local/share/miktex-texmf/tex/latex/base/size10.clo
+File: size10.clo 2014/09/29 v1.4h Standard LaTeX file (size option)
+)
+\c@part=\count79
+\c@section=\count80
+\c@subsection=\count81
+\c@subsubsection=\count82
+\c@paragraph=\count83
+\c@subparagraph=\count84
+\c@figure=\count85
+\c@table=\count86
+\abovecaptionskip=\skip41
+\belowcaptionskip=\skip42
+\bibindent=\dimen102
+) (aaai18.sty
+Conference Style for AAAI for LaTeX 2e -- version for the AAAI-18 conference
+\titlebox=\skip43
+) (/usr/local/share/miktex-texmf/tex/latex/psnfss/times.sty
+Package: times 2005/04/12 PSNFSS-v9.2a (SPQR) 
+)
+(/usr/local/share/miktex-texmf/tex/latex/psnfss/helvet.sty
+Package: helvet 2005/04/12 PSNFSS-v9.2a (WaS) 
+
+(/usr/local/share/miktex-texmf/tex/latex/graphics/keyval.sty
+Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
+\KV@toks@=\toks14
+))
+(/usr/local/share/miktex-texmf/tex/latex/psnfss/courier.sty
+Package: courier 2005/04/12 PSNFSS-v9.2a (WaS) 
+)
+(/usr/local/share/miktex-texmf/tex/latex/url/url.sty
+\Urlmuskip=\muskip10
+Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
+)
+(/usr/local/share/miktex-texmf/tex/latex/graphics/graphicx.sty
+Package: graphicx 2017/06/01 v1.1a Enhanced LaTeX Graphics (DPC,SPQR)
+
+(/usr/local/share/miktex-texmf/tex/latex/graphics/graphics.sty
+Package: graphics 2017/06/25 v1.2c Standard LaTeX Graphics (DPC,SPQR)
+
+(/usr/local/share/miktex-texmf/tex/latex/graphics/trig.sty
+Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
+)
+(/usr/local/share/miktex-texmf/tex/latex/graphics-cfg/graphics.cfg
+File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
+)
+Package graphics Info: Driver file: pdftex.def on input line 99.
+
+(/usr/local/share/miktex-texmf/tex/latex/graphics-def/pdftex.def
+File: pdftex.def 2017/06/24 v1.0g Graphics/color driver for pdftex
+))
+\Gin@req@height=\dimen103
+\Gin@req@width=\dimen104
+)
+No file formatting-instructions-latex-2018.aux.
+\openout1 = `formatting-instructions-latex-2018.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Try loading font information for OT1+ptm on input line 18.
+(/usr/local/share/miktex-texmf/tex/latex/psnfss/ot1ptm.fd
+File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
+)
+(/usr/local/share/miktex-texmf/tex/context/base/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+\scratchcounter=\count87
+\scratchdimen=\dimen105
+\scratchbox=\box26
+\nofMPsegments=\count88
+\nofMParguments=\count89
+\everyMPshowfont=\toks15
+\MPscratchCnt=\count90
+\MPscratchDim=\dimen106
+\MPnumerator=\count91
+\makeMPintoPDFobject=\count92
+\everyMPtoPDFconversion=\toks16
+) (/usr/local/share/miktex-texmf/tex/latex/oberdiek/epstopdf-base.sty
+Package: epstopdf-base 2016/05/15 v2.6 Base part for package epstopdf
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/infwarerr.sty
+Package: infwarerr 2016/05/16 v1.4 Providing info/warning/error messages (HO)
+)
+(/usr/local/share/miktex-texmf/tex/latex/oberdiek/grfext.sty
+Package: grfext 2016/05/16 v1.2 Manage graphics extensions (HO)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/kvdefinekeys.sty
+Package: kvdefinekeys 2016/05/16 v1.4 Define keys (HO)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/ltxcmds.sty
+Package: ltxcmds 2016/05/16 v1.23 LaTeX kernel commands for general use (HO)
+)))
+(/usr/local/share/miktex-texmf/tex/latex/oberdiek/kvoptions.sty
+Package: kvoptions 2016/05/16 v3.12 Key value format for package options (HO)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/kvsetkeys.sty
+Package: kvsetkeys 2016/05/16 v1.17 Key value parser (HO)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/etexcmds.sty
+Package: etexcmds 2016/05/16 v1.6 Avoid name clashes with e-TeX commands (HO)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/ifluatex.sty
+Package: ifluatex 2016/05/16 v1.4 Provides the ifluatex switch (HO)
+Package ifluatex Info: LuaTeX not detected.
+)
+Package etexcmds Info: Could not find \expanded.
+(etexcmds)             That can mean that you are not using pdfTeX 1.50 or
+(etexcmds)             that some package has redefined \expanded.
+(etexcmds)             In the latter case, load this package earlier.
+)))
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/pdftexcmds.sty
+Package: pdftexcmds 2017/03/19 v0.25 Utility functions of pdfTeX for LuaTeX (HO
+)
+
+(/usr/local/share/miktex-texmf/tex/generic/oberdiek/ifpdf.sty
+Package: ifpdf 2017/03/15 v3.2 Provides the ifpdf switch
+)
+Package pdftexcmds Info: LuaTeX not detected.
+Package pdftexcmds Info: \pdf@primitive is available.
+Package pdftexcmds Info: \pdf@ifprimitive is available.
+Package pdftexcmds Info: \pdfdraftmode found.
+)
+Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
+38.
+Package grfext Info: Graphics extension search list:
+(grfext)             [.pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPE
+G,.JBIG2,.JB2,.eps]
+(grfext)             \AppendGraphicsExtensions on input line 456.
+)
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <14.4> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 28.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <14.4> on input line 28.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 28.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 28.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 28.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <12> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 28.
+LaTeX Font Info:    Try loading font information for OMS+ptm on input line 28.
+
+(/usr/local/share/miktex-texmf/tex/latex/psnfss/omsptm.fd
+File: omsptm.fd 
+)
+LaTeX Font Info:    Font shape `OMS/ptm/m/n' in size <9> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 28.
+LaTeX Font Info:    Font shape `OMS/ptm/m/n' in size <10> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 40.
+ [1{/usr/local/var/cache/miktex-texmf/pdftex/config/pdftex.map}
+
+
+
+]
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <12> on input line 102.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <8> on input line 102.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <6> on input line 102.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 102.
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 106.
+ [2]
+Underfull \hbox (badness 1776) in paragraph at lines 112--113
+\OT1/ptm/m/n/10 fit with-in the spec-i-fied height al-lowed, put \OMS/cmsy/m/n/
+10 n\OT1/ptm/m/n/10 setlength
+ []
+
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 116.
+
+(/usr/local/share/miktex-texmf/tex/latex/psnfss/ot1pcr.fd
+File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
+)
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <10.95> on input line 196.
+ [3]
+Underfull \hbox (badness 2035) in paragraph at lines 262--263
+\OT1/ptm/m/n/10 in-clude \OMS/cmsy/m/n/10 n\OT1/ptm/m/n/10 columnsep, \OMS/cmsy
+/m/n/10 n\OT1/ptm/m/n/10 topmargin, \OMS/cmsy/m/n/10 n\OT1/ptm/m/n/10 topskip, 
+\OMS/cmsy/m/n/10 n\OT1/ptm/m/n/10 textheight,
+ []
+
+[4]
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 282.
+
+Underfull \hbox (badness 1281) in paragraph at lines 282--284
+\OT1/ptm/m/n/10 pa-per (y-ou can-not use it for the tex-t) y-ou may need
+ []
+
+
+Underfull \hbox (badness 1092) in paragraph at lines 315--318
+\OT1/ptm/m/n/10 If the ti-tle and au-thor in-for-ma-tion does not fit in the
+ []
+
+
+Underfull \hbox (badness 1231) in paragraph at lines 341--344
+\OT1/ptm/m/n/10 The copy-right no-tice au-to-mat-i-cal-ly ap-pears if y-ou use
+ []
+
+[5]
+Underfull \hbox (badness 2158) in paragraph at lines 396--397
+ \OT1/ptm/b/n/10 Ap-pen-dices. \OT1/ptm/m/n/10 Any ap-pen-dices fol-low the ac-
+knowl-edg-
+ []
+
+
+Underfull \hbox (badness 2035) in paragraph at lines 399--400
+ \OT1/ptm/b/n/10 Ref-er-ences \OT1/ptm/m/n/10 The ref-er-ences sec-tion should 
+be la-beled
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 411--412
+ \OT1/ptm/b/n/10 Low-Resolution Bitmap-s. \OT1/ptm/m/n/10 Y-ou may not use low-
+
+ []
+
+
+Underfull \hbox (badness 5403) in paragraph at lines 411--412
+\OT1/ptm/m/n/10 resolution (such as 72 d-pi) screen-dumps and GIF
+ []
+
+[6]
+Underfull \hbox (badness 10000) in paragraph at lines 441--442
+[]\OT1/ptm/m/n/10 Please note that y-ou are re-quired to use
+ []
+
+
+Underfull \hbox (badness 1603) in paragraph at lines 441--442
+\OMS/cmsy/m/n/10 n\OT1/ptm/m/n/10 bibliographystyle\OMS/cmsy/m/n/10 f\OT1/ptm/m
+/n/10 aaai\OMS/cmsy/m/n/10 g \OT1/ptm/m/n/10 for y-our ref-er-ences. Y-ou may
+ []
+
+[7]
+Underfull \hbox (badness 10000) in paragraph at lines 581--584
+\OT1/ptm/m/n/9 You have used trim and clip com-mand-s in y-our
+ []
+
+
+Underfull \hbox (badness 4454) in paragraph at lines 581--584
+\OMS/cmsy/m/n/9 n\OT1/ptm/m/n/9 includegraphics s-tate-men-t. Please crop y-our
+ graph-ic-s
+ []
+
+
+Underfull \hbox (badness 4316) in paragraph at lines 581--584
+\OT1/ptm/m/n/9 ap-pro-pri-ate-ly us-ing a s-tan-dard graph-ic-s pro-gram (not
+ []
+
+
+Underfull \hbox (badness 1946) in paragraph at lines 620--623
+\OT1/ptm/m/n/9 You used \OMS/cmsy/m/n/9 n\OT1/ptm/m/n/9 usepackage\OMS/cmsy/m/n
+/9 f\OT1/ptm/m/n/9 geometry\OMS/cmsy/m/n/9 g\OT1/ptm/m/n/9 , which is a pack-ag
+e
+ []
+
+[8]
+Underfull \hbox (badness 3068) in paragraph at lines 645--648
+\OMS/cmsy/m/n/9 n\OT1/ptm/m/n/9 linespread al-ter-s aaai.sty. This com-mand (a-
+long with
+ []
+
+
+Underfull \hbox (badness 2088) in paragraph at lines 753--756
+\OT1/ptm/m/n/9 cap-tion-s, and/or sec-tion/subsection/subsubsections. These
+ []
+
+[9] [10]
+Underfull \hbox (badness 1087) in paragraph at lines 890--891
+\OT1/ptm/m/n/10 2002/08/13) about ob-tain-ing cor-rec-t P-S/PDF out-put on
+ []
+
+[11] (formatting-instructions-latex-2018.aux) ) 
+Here is how much of TeX's memory you used:
+ 1686 strings out of 495217
+ 24119 string characters out of 3181635
+ 82925 words of memory out of 3000000
+ 4959 multiletter control sequences out of 15000+200000
+ 27721 words of font info for 59 fonts, out of 3000000 for 9000
+ 14 hyphenation exceptions out of 8191
+ 41i,10n,25p,938b,295s stack positions out of 5000i,500n,10000p,200000b,50000s
+{/usr/local/share/miktex-texmf/f
+onts/enc/dvips/base/8r.enc}</usr/local/share/miktex-texmf/fonts/type1/public/am
+sfonts/cm/cmsy10.pfb></usr/local/share/miktex-texmf/fonts/type1/public/amsfonts
+/cm/cmsy9.pfb></usr/local/share/miktex-texmf/fonts/type1/urw/courier/ucrr8a.pfb
+></usr/local/share/miktex-texmf/fonts/type1/urw/times/utmb8a.pfb></usr/local/sh
+are/miktex-texmf/fonts/type1/urw/times/utmr8a.pfb></usr/local/share/miktex-texm
+f/fonts/type1/urw/times/utmri8a.pfb>
+Output written on formatting-instructions-latex-2018.pdf (11 pages, 140561 byte
+s).
+PDF statistics:
+ 63 PDF objects out of 1000 (max. 8388607)
+ 0 named destinations out of 1000 (max. 500000)
+ 1 words of extra memory for PDF output out of 10000 (max. 10000000)
+

@@ -203,89 +203,10 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
             target_flat = tf.reshape(target, tf.stack([-1, channels]))
             target_flat = tf.cast(target_flat, 'float32')
             
-            def helper(x0_, x1_, y0_, y1_, x_range, y_range):
-                scale = min(x_range, y_range)
-                scale_area = x_range * y_range / (scale*scale)
+            # def helper(x0_, x1_, y0_, y1_, x_range, y_range):
+            #     scale = min(x_range, y_range)
+            #     scale_area = x_range * y_range / (scale*scale)
 
-                x0_c = tf.clip_by_value(x0_, zero, max_x)
-                x1_c = tf.clip_by_value(x1_, zero, max_x)
-
-                y0_c = tf.clip_by_value(y0_, zero, max_y)
-                y1_c = tf.clip_by_value(y1_, zero, max_y)
-
-                base_y0 = base + y0_c*dim2
-                base_y1 = base + y1_c*dim2
-
-                idx_a = base_y0 + x0_c
-                idx_b = base_y1 + x0_c
-                idx_c = base_y0 + x1_c
-                idx_d = base_y1 + x1_c
-
-                Ia = tf.gather(im_flat, idx_a)
-                Ib = tf.gather(im_flat, idx_b)
-                Ic = tf.gather(im_flat, idx_c)
-                Id = tf.gather(im_flat, idx_d)
-
-                # and finally calculate interpolated values
-                x0_f = tf.cast(x0_, 'float32')
-                x1_f = tf.cast(x1_, 'float32')
-                y0_f = tf.cast(y0_, 'float32')
-                y1_f = tf.cast(y1_, 'float32')
-
-                x_mid = (x0_f + x1_f) / 2.0
-                y_mid = (y0_f + y1_f) / 2.0
-
-                x0_f = (x0_f - x_mid) / scale + x_mid
-                x1_f = (x1_f - x_mid) / scale + x_mid
-                y0_f = (y0_f - y_mid) / scale + y_mid
-                y1_f = (y1_f - y_mid) / scale + y_mid
-
-                wa = tf.expand_dims(((x1_f-x) * (y1_f-y) / scale_area), 1)
-                wb = tf.expand_dims(((x1_f-x) * (y-y0_f) / scale_area), 1)
-                wc = tf.expand_dims(((x-x0_f) * (y1_f-y) / scale_area), 1)
-                wd = tf.expand_dims(((x-x0_f) * (y-y0_f) / scale_area), 1)
-                output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
-                return output, [tf.expand_dims(Ia, axis=-1), 
-                              tf.expand_dims(Ib, axis=-1), 
-                              tf.expand_dims(Ic, axis=-1), 
-                              tf.expand_dims(Id, axis=-1)]
-            
-            output1, v1 = helper(x0, x1, y0, y1, 1.0, 1.0)
-            output2, v2 = helper(x0, x1, yn1, y2, 1.0, 3.0)
-            output3, v3 = helper(xn1, x2, y0, y1, 3.0, 1.0)
-            output4, v4 = helper(xn1, x2, yn1, y2, 3.0, 3.0)
-            
-            output5, v5 = helper(xn2, x3, yn2, y3, 5.0, 5.0)
-            output6, v6 = helper(x0, x1, yn2, y3, 1.0, 5.0)
-            output7, v7 = helper(xn1, x2, yn2, y3, 3.0, 5.0)
-            output8, v8 = helper(xn2, x3, y0, y1, 5.0, 1.0)
-            output9, v9 = helper(xn2, x3, yn1, y2, 5.0, 3.0)
-            
-            output10, v10 = helper(xn3, x4, yn3, y4, 7.0, 7.0)
-            output11, v11 = helper(xn3, x4, yn1, y2, 7.0, 3.0)
-            output12, v12 = helper(xn1, x2, yn3, y4, 3.0, 7.0)
-            
-            
-            candidates = tf.concat(v1+v2+v3+v4+v5+v6+v7+v8+v9+v10+v11+v12, axis=2)
-            
-            idx = tf.argmin(tf.reduce_mean(tf.abs(candidates - tf.expand_dims(target_flat, axis=-1)), axis=1, keep_dims=True), axis=2)
-            idx = tf.tile(idx, [1, channels])
-            
-            error_small_pred = tf.tile(tf.reduce_mean(tf.abs(output1 - target_flat), axis=1, keep_dims=True), [1, channels]) < 0.1
-            
-            output = tf.where(tf.logical_or(error_small_pred, tf.logical_and(idx>=0, idx<4)), output1, 
-                            tf.where(tf.logical_and(idx>=4, idx<8), output2, 
-                            tf.where(tf.logical_and(idx>=8, idx<12), output3, 
-                            tf.where(tf.logical_and(idx>=12, idx<16), output4, 
-                            tf.where(tf.logical_and(idx>=16, idx<20), output5,
-                            tf.where(tf.logical_and(idx>=20, idx<24), output6,
-                            tf.where(tf.logical_and(idx>=24, idx<28), output7,
-                            tf.where(tf.logical_and(idx>=28, idx<32), output8, 
-                            tf.where(tf.logical_and(idx>=32, idx<36), output9, 
-                            tf.where(tf.logical_and(idx>=36, idx<40), output10, 
-                            tf.where(tf.logical_and(idx>=40, idx<44), output11, output12)))))))))))
-
-            # def helper(x0_, x1_, y0_, y1_, scale):
             #     x0_c = tf.clip_by_value(x0_, zero, max_x)
             #     x1_c = tf.clip_by_value(x1_, zero, max_x)
 
@@ -310,32 +231,111 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
             #     x1_f = tf.cast(x1_, 'float32')
             #     y0_f = tf.cast(y0_, 'float32')
             #     y1_f = tf.cast(y1_, 'float32')
-            #     wa = tf.expand_dims(((x1_f-x) * (y1_f-y) / scale), 1)
-            #     wb = tf.expand_dims(((x1_f-x) * (y-y0_f) / scale), 1)
-            #     wc = tf.expand_dims(((x-x0_f) * (y1_f-y) / scale), 1)
-            #     wd = tf.expand_dims(((x-x0_f) * (y-y0_f) / scale), 1)
+
+            #     x_mid = (x0_f + x1_f) / 2.0
+            #     y_mid = (y0_f + y1_f) / 2.0
+
+            #     x0_f = (x0_f - x_mid) / scale + x_mid
+            #     x1_f = (x1_f - x_mid) / scale + x_mid
+            #     y0_f = (y0_f - y_mid) / scale + y_mid
+            #     y1_f = (y1_f - y_mid) / scale + y_mid
+
+            #     wa = tf.expand_dims(((x1_f-x) * (y1_f-y) / scale_area), 1)
+            #     wb = tf.expand_dims(((x1_f-x) * (y-y0_f) / scale_area), 1)
+            #     wc = tf.expand_dims(((x-x0_f) * (y1_f-y) / scale_area), 1)
+            #     wd = tf.expand_dims(((x-x0_f) * (y-y0_f) / scale_area), 1)
             #     output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
             #     return output, [tf.expand_dims(Ia, axis=-1), 
             #                   tf.expand_dims(Ib, axis=-1), 
             #                   tf.expand_dims(Ic, axis=-1), 
             #                   tf.expand_dims(Id, axis=-1)]
             
-            # output1, v1 = helper(x0, x1, y0, y1, 1.0)
-            # output2, v2 = helper(x0, x1, yn1, y2, 3.0)
-            # output3, v3 = helper(xn1, x2, y0, y1, 3.0)
-            # output4, v4 = helper(xn1, x2, yn1, y2, 9.0)
-            # output5, v5 = helper(xn2, x3, yn2, y3, 25.0)
+            # output1, v1 = helper(x0, x1, y0, y1, 1.0, 1.0)
+            # output2, v2 = helper(x0, x1, yn1, y2, 1.0, 3.0)
+            # output3, v3 = helper(xn1, x2, y0, y1, 3.0, 1.0)
+            # output4, v4 = helper(xn1, x2, yn1, y2, 3.0, 3.0)
             
-            # candidates = tf.concat(v1+v2+v3+v4+v5, axis=2)
+            # output5, v5 = helper(xn2, x3, yn2, y3, 5.0, 5.0)
+            # output6, v6 = helper(x0, x1, yn2, y3, 1.0, 5.0)
+            # output7, v7 = helper(xn1, x2, yn2, y3, 3.0, 5.0)
+            # output8, v8 = helper(xn2, x3, y0, y1, 5.0, 1.0)
+            # output9, v9 = helper(xn2, x3, yn1, y2, 5.0, 3.0)
+            
+            # output10, v10 = helper(xn3, x4, yn3, y4, 7.0, 7.0)
+            # output11, v11 = helper(xn3, x4, yn1, y2, 7.0, 3.0)
+            # output12, v12 = helper(xn1, x2, yn3, y4, 3.0, 7.0)
+            
+            
+            # candidates = tf.concat(v1+v2+v3+v4+v5+v6+v7+v8+v9+v10+v11+v12, axis=2)
             
             # idx = tf.argmin(tf.reduce_mean(tf.abs(candidates - tf.expand_dims(target_flat, axis=-1)), axis=1, keep_dims=True), axis=2)
             # idx = tf.tile(idx, [1, channels])
             
             # error_small_pred = tf.tile(tf.reduce_mean(tf.abs(output1 - target_flat), axis=1, keep_dims=True), [1, channels]) < 0.1
+            
             # output = tf.where(tf.logical_or(error_small_pred, tf.logical_and(idx>=0, idx<4)), output1, 
-            #             tf.where(tf.logical_and(idx>=4, idx<8), output2, 
-            #             tf.where(tf.logical_and(idx>=8, idx<12), output3, 
-            #             tf.where(tf.logical_and(idx>=12, idx<16), output4, output5))))
+            #                 tf.where(tf.logical_and(idx>=4, idx<8), output2, 
+            #                 tf.where(tf.logical_and(idx>=8, idx<12), output3, 
+            #                 tf.where(tf.logical_and(idx>=12, idx<16), output4, 
+            #                 tf.where(tf.logical_and(idx>=16, idx<20), output5,
+            #                 tf.where(tf.logical_and(idx>=20, idx<24), output6,
+            #                 tf.where(tf.logical_and(idx>=24, idx<28), output7,
+            #                 tf.where(tf.logical_and(idx>=28, idx<32), output8, 
+            #                 tf.where(tf.logical_and(idx>=32, idx<36), output9, 
+            #                 tf.where(tf.logical_and(idx>=36, idx<40), output10, 
+            #                 tf.where(tf.logical_and(idx>=40, idx<44), output11, output12)))))))))))
+
+            def helper(x0_, x1_, y0_, y1_, scale):
+                x0_c = tf.clip_by_value(x0_, zero, max_x)
+                x1_c = tf.clip_by_value(x1_, zero, max_x)
+
+                y0_c = tf.clip_by_value(y0_, zero, max_y)
+                y1_c = tf.clip_by_value(y1_, zero, max_y)
+
+                base_y0 = base + y0_c*dim2
+                base_y1 = base + y1_c*dim2
+
+                idx_a = base_y0 + x0_c
+                idx_b = base_y1 + x0_c
+                idx_c = base_y0 + x1_c
+                idx_d = base_y1 + x1_c
+
+                Ia = tf.gather(im_flat, idx_a)
+                Ib = tf.gather(im_flat, idx_b)
+                Ic = tf.gather(im_flat, idx_c)
+                Id = tf.gather(im_flat, idx_d)
+
+                # and finally calculate interpolated values
+                x0_f = tf.cast(x0_, 'float32')
+                x1_f = tf.cast(x1_, 'float32')
+                y0_f = tf.cast(y0_, 'float32')
+                y1_f = tf.cast(y1_, 'float32')
+                wa = tf.expand_dims(((x1_f-x) * (y1_f-y) / scale), 1)
+                wb = tf.expand_dims(((x1_f-x) * (y-y0_f) / scale), 1)
+                wc = tf.expand_dims(((x-x0_f) * (y1_f-y) / scale), 1)
+                wd = tf.expand_dims(((x-x0_f) * (y-y0_f) / scale), 1)
+                output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
+                return output, [tf.expand_dims(Ia, axis=-1), 
+                              tf.expand_dims(Ib, axis=-1), 
+                              tf.expand_dims(Ic, axis=-1), 
+                              tf.expand_dims(Id, axis=-1)]
+            
+            output1, v1 = helper(x0, x1, y0, y1, 1.0)
+            output2, v2 = helper(x0, x1, yn1, y2, 3.0)
+            output3, v3 = helper(xn1, x2, y0, y1, 3.0)
+            output4, v4 = helper(xn1, x2, yn1, y2, 9.0)
+            output5, v5 = helper(xn2, x3, yn2, y3, 25.0)
+            
+            candidates = tf.concat(v1+v2+v3+v4+v5, axis=2)
+            
+            idx = tf.argmin(tf.reduce_mean(tf.abs(candidates - tf.expand_dims(target_flat, axis=-1)), axis=1, keep_dims=True), axis=2)
+            idx = tf.tile(idx, [1, channels])
+            
+            error_small_pred = tf.tile(tf.reduce_mean(tf.abs(output1 - target_flat), axis=1, keep_dims=True), [1, channels]) < 0.1
+            output = tf.where(tf.logical_or(error_small_pred, tf.logical_and(idx>=0, idx<4)), output1, 
+                        tf.where(tf.logical_and(idx>=4, idx<8), output2, 
+                        tf.where(tf.logical_and(idx>=8, idx<12), output3, 
+                        tf.where(tf.logical_and(idx>=12, idx<16), output4, output5))))
             output = tf.reshape(output, shape=tf.stack([num_batch, height, width, channels]))
             return output
 
