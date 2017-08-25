@@ -14,21 +14,79 @@
   \pdfinfo{
 /Title (2018 Formatting Instructions for Authors Using LaTeX)
 /Author (AAAI Press Staff)}
-\setcounter{secnumdepth}{0}  
+\setcounter{secnumdepth}{2}  
  \begin{document}
 % The file aaai.sty is the style file for AAAI Press 
 % proceedings, working notes, and technical reports.
 %
-\title{2018 Formatting Instructions \\for Authors Using \LaTeX{}}
-\author{AAAI Press\\
-Association for the Advancement of Artificial Intelligence\\
-2275 East Bayshore Road, Suite 160\\
-Palo Alto, California 94303\\
-}
+\title{Unsupervised learning for joint depth and normal estimation}
+\author{Zhenheng Yang \\
+University of Southern California\\
+\texttt{zhenheny@usc.edu}
+\And 
+Peng Wang\\
+Baidu Research\\
+\texttt{wangpeng54@baidu.com}
+\And Ram Nevatia\\
+University of Southern California\\
+\texttt{nevatia@usc.edu}}
+
 \maketitle
 \begin{abstract}
-AAAI creates proceedings, working notes, and technical reports directly from electronic source furnished by the authors. To ensure that all papers in the publication have a uniform appearance, authors must adhere to the following instructions. 
+We propose an unsupervised learning framework for joint estimation of scene depth and normal in single images. Similar to recent work [1,2,3], we implement an end-to-end network that leverages the view synthesis and geometry consistency in videos as the supervision. Our method takes monocular videos as input and outputs camera motion, depth and surface normal. Evaluation of depth and normal on KITTI 2015 dataset demonstrates the effectiveness of our approach: our method has outperforms current state-of-the-art performance in terms of depth and normal evaluation metrics.
 \end{abstract}
+
+\section{Introduction}
+
+% introduce the problem
+Depth and normal estimation has been explored in multiple 
+
+\section{Related Work}
+
+\subsection{Supervised depth and normal estimation}
+
+\subsection{Unsupervised learning for low-level vision}
+
+\subsection{Spatial transformer network}
+
+
+\section{Method}
+
+\subsection{Objective function}
+
+\textbf{Photometric loss}
+
+\textbf{Image gradient matching loss}
+
+\textbf{Edge-aware smoothness loss}
+
+\subsection{Geometry consistency}
+
+\textbf{Depth2normal layer}
+
+\textbf{Normal2depth layer}
+
+\section{Evaluation}
+
+\subsection{Datasets and metrics}
+
+\subsection{Ablation study}
+
+\textbf{Depth and normal geometry consistency}
+
+\textbf{Image edge in smoothness term}
+
+\textbf{Image edge in depth2normal and normal2depth layers}
+
+\textbf{Image gradient matching}
+
+\subsection{Comparison with other methods}
+
+\textbf{KITTI 2015 test split}
+
+\textbf{KITTI 2015 Eigen split}
+
+\section{Conclusion}
 
 \noindent Congratulations on having a paper selected for inclusion in an AAAI Press proceedings or technical report! This document details the requirements necessary to get your accepted paper published using \LaTeX{}. If you are using Microsoft Word, instructions are provided in a different document. If you want to use some other formatting software, you must obtain permission from AAAI Press first. 
 

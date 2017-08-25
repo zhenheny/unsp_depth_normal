@@ -3,6 +3,9 @@ import numpy as np
 import scipy.misc as sm
 from utils import *
 import os
+import sys
+sys.path.append("/home/zhenheng/works/DeMoN/utils/")
+from utils_3d import *
 
 
 
@@ -45,11 +48,13 @@ def read_intrinsic(intrinsic_file):
 
 
 root_path = "/home/zhenheng/datasets/sun3d/brown_bm_2/brown_bm_2/"
-save_path = "/home/zhenheng/datasets/sun3d/warp_examples/"
+save_path = "/home/zhenheng/datasets/sun3d/warp_examples_peng/"
 img_path = root_path + "image/"
 depth_path = root_path + "depth/"
 extrinsic_path = root_path + "extrinsics/"
 intrinsic_file = root_path+"intrinsics.txt"
+img_height = 480.0
+img_width = 640.0
 
 img_list, depth_list = [], []
 for file in os.listdir(img_path):
@@ -63,37 +68,23 @@ depth_list.sort()
 extrinsic_list = os.listdir(extrinsic_path)
 extrinsic_list.sort()
 
-image_ph = tf.placeholder(tf.float32, [1, 480, 640, 3])
-depth_ph = tf.placeholder(tf.float32, [1, 480, 640])
-pose_ph = tf.placeholder(tf.float32, [1, 4, 4])
-intrinsic_ph = tf.placeholder(tf.float32, [1, 3, 3])
-invintrinsic_ph = tf.placeholder(tf.float32, [1, 3, 3])
-
 extrinsic_mtx = generate_extrinsic(extrinsic_path, extrinsic_list)
 
 intrinsic_mtx = read_intrinsic(intrinsic_file)
-invintrinsic_mtx = np.linalg.inv(intrinsic_mtx)
-intrinsic_mtx, invintrinsic_mtx = np.expand_dims(intrinsic_mtx, 0), np.expand_dims(invintrinsic_mtx, 0)
+intrinsic_mtx[0, :] /= img_width
+intrinsic_mtx[1, :] /= img_height
+intrinsic_vector = np.array([intrinsic_mtx[0,0], intrinsic_mtx[1,1], intrinsic_mtx[0,2], intrinsic_mtx[1,2]], dtype=np.float32)
 
-proj_img = inverse_warp(image_ph, depth_ph, pose_ph, intrinsic_ph, invintrinsic_ph, image_ph)
-
-with tf.Session() as sess:
-
-	for i in range(min(len(img_list), len(depth_list))):
-		# extrinsic_vector = convert_extrincmtx_vector(extrinsic_mtx[i], intrinsic_mtx)
-		extrinsic_vector_1= np.vstack((extrinsic_mtx[i], np.array([0.0, 0.0, 0.0, 1.0])))
-		extrinsic_vector_2= np.vstack((extrinsic_mtx[i+1], np.array([0.0, 0.0, 0.0, 1.0])))
-		motion_mtx = np.dot(np.linalg.inv(extrinsic_vector_1), extrinsic_vector_2)
-		img = np.array(sm.imread(img_path + img_list[i+1]), dtype=np.float32)
-		img = np.expand_dims(preprocess_image(img), 0)
-		depth = np.array(sm.imread(depth_path + depth_list[i]), dtype=np.float32)
-		depth /= 255.0
-		depth = np.expand_dims(depth, 0)
-		motion_mtx = np.expand_dims(motion_mtx, 0)
-
-		input_dict = {image_ph:img, depth_ph:depth, pose_ph:motion_mtx, intrinsic_ph:intrinsic_mtx, invintrinsic_ph:invintrinsic_mtx}
-		proj_img_np = np.squeeze(sess.run(proj_img, feed_dict=input_dict))
-		sm.imsave(save_path+img_list[i], proj_img_np)
+for i in range(min(len(img_list), len(depth_list))):
+	# extrinsic_vector = convert_extrincmtx_vector(extrinsic_mtx[i], intrinsic_mtx)
+	extrinsic_vector_1= extrinsic_mtx[i]
+	extrinsic_vector_2= extrinsic_mtx[i+1]
+	img = np.array(sm.imread(img_path + img_list[i]), dtype=np.float32)
+	depth = np.array(sm.imread(depth_path + depth_list[i]), dtype=np.float32)
+	depth /= 255.0
+	flow = depth2flow(depth, extrinsic_vector_1, extrinsic_vector_2, intrinsic_vector)[0]
+	warped_image = warp2d(img, flow)
+	sm.imsave(save_path+img_list[i], warped_image)
 
 
 

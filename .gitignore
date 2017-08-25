@@ -3,3 +3,4 @@ eval
 models
 *.md
 *.png
+*.pyc

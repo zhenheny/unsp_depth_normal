@@ -442,7 +442,10 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     cam_coords = _pixel2cam(depth, grid, intrinsics_inv)
     ones = tf.ones([batch_size, 1, img_height*img_width])
     cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
-    pose_mat = _pose_vec2mat(pose)
+    if len(pose.get_shape().as_list()) == 3:
+        pose_mat = pose
+    else:
+        pose_mat = _pose_vec2mat(pose)
 
     # Get projection matrix for tgt camera frame to source pixel frame
     hom_filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])
@@ -704,6 +707,7 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     ones = tf.ones([batch_size, 1, img_height*img_width])
     cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
     pose_mat = _pose_vec2mat(pose)
+    # pose_mat = pose
 
     # Get projection matrix for tgt camera frame to source pixel frame
     hom_filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])

@@ -75,7 +75,7 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
             return pose_final, [mask1, mask2, mask3, mask4], end_points
 
 def disp_net(tgt_image, is_training=True):
-    batch_norm_params = {'is_training': is_training}
+    batch_norm_params = {'is_training': is_training, 'decay':0.9}
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
     with tf.variable_scope('depth_net') as sc:

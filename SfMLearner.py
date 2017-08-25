@@ -139,8 +139,8 @@ class SfMLearner(object):
 
                     smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_disp[s]))
-                        self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
-                        # self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
+                        # self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
+                        self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
                         # self.compute_smooth_loss(pred_disp2))
                         # self.compute_smooth_loss_multiscale(pred_disp2))
                         # self.compute_edge_aware_smooth_loss(pred_disp2, curr_tgt_image))
@@ -225,11 +225,16 @@ class SfMLearner(object):
                         pixel_loss += tf.reduce_mean(curr_proj_error) 
 
                     if opt.img_grad_weight > 0:
-                        img_grad_loss += tf.reduce_mean(curr_proj_error_grad_x * \
-                            tf.expand_dims(curr_exp[:,:,:,1], -1)[:,:-2,2:-1,:])
-                        img_grad_loss += tf.reduce_mean(curr_proj_error_grad_y * \
-                            tf.expand_dims(curr_exp[:,:,:,1], -1)[:,1:-2,1:-1,:])
-                        img_grad_loss *= opt.img_grad_weight
+                        curr_proj_image_grad_x, curr_proj_image_grad_y = self.gradient(curr_proj_image[:, :-2, 1:-1, :])
+                        curr_proj_error_grad_x, curr_proj_error_grad_y = tf.abs(curr_tgt_image_grad_x-curr_proj_image_grad_x), \
+                                                                tf.abs(curr_tgt_image_grad_y-curr_proj_image_grad_y)
+                        # img_grad_loss += opt.img_grad_weight * tf.reduce_mean(curr_proj_error_grad_x * \
+                        #     tf.slice(tf.expand_dims(curr_exp[:,:,:,1], -1), slice_starts[j], slice_size))
+                        # img_grad_loss += opt.img_grad_weight * tf.reduce_mean(curr_proj_error_grad_y * \
+                        #     tf.slice(tf.expand_dims(curr_exp[:,:,:,1], -1), slice_starts[j], slice_size))
+                        img_grad_loss += opt.img_grad_weight * tf.reduce_mean(curr_proj_error_grad_x)
+                        img_grad_loss += opt.img_grad_weight * tf.reduce_mean(curr_proj_error_grad_y)
+                    
 
                     # for j in range(len(pred_depths2)):
                     #     curr_proj_image = inverse_warp(
@@ -475,7 +480,7 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        self.saver = tf.train.Saver([var for var in tf.trainable_variables()] + \
+        self.saver = tf.train.Saver([var for var in tf.global_variables()] + \
                                     [self.global_step], 
                                     max_to_keep=40)
         sv = tf.train.Supervisor(logdir=opt.checkpoint_dir, 
@@ -632,7 +637,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(input_mc)
+            pred_disp, depth_net_endpoints = disp_net(input_mc, is_training=False)
             pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc)
