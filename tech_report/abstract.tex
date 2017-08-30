@@ -1,0 +1,6 @@
+\begin{abstract}
+    Learning to recontruct depth from video in an unsupervised manner with deep convolutional network (DCN) \cite{,} acctracts significant attention in recent year, due to that it can be applied to unlabeled videos online for applications such as augment relality etc.
+In this paper, in order to further improve the system robustness, we propose to recover depth by introducing an internal normal representation in an unified unsupervised pipeline, where the estimation of depth is regularized by the predicted normals, yielding more robust and exactly consistent estimation for depth and normals. Specifically, we constructed a normal regularization unit for depth prediction.
+The layer takes estimated depth for each pixel as input, and compute normal directions. Then given the normal and depth, the layer outputs a regularized depth through local planar smoothness.
+Finally, to train the network we apply the photometric loss as proposed in~\cite{}, and further require gradient smoothness for both depth and normals predictions. We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperform the state-of-arts, reducing both depth and normal error over relative 10$\%$, which demonstrates the benefits from the normal representation.
+\end{abstract}
