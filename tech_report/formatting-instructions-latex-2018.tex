@@ -7,6 +7,8 @@
 \usepackage{courier}  %Required
 \usepackage{url}  %Required
 \usepackage{graphicx}  %Required
+\usepackage{mathtools}
+\usepackage{amsmath}
 \frenchspacing  %Required
 \setlength{\pdfpagewidth}{8.5in}  %Required
 \setlength{\pdfpageheight}{11in}  %Required
@@ -51,20 +53,51 @@ Depth and normal estimation has been explored in multiple
 
 
 \section{Method}
-
+In this section, we describe the framework architecture and training procedure in detail.
+Our intuition is to train a CNN that is capable of modeling the geometry consistency of a mostly rigid scene. To facilitate the learning of the network, we explicitly propose to model the constraint between depth and normal. The training samples of the framework consist of frame sequences captured by a monocular moving camera.
+  
 \subsection{Objective function}
+To model a reasonable geometrical consistency, we propose the overall objective function as in Equation \ref{equ:1}.
+\begin{equation}
+\label{equ:1}
+\begin{split}
+L(D, I, Rt, \lambda) = L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
+ +  L_{grad}(D, I, Rt) + \lambda(L_{dn}(D, N))
+\end{split}
+\end{equation}
+This objective function is a Lagrange fuction aiming to minimize the loss term $L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
+ +  L_{grad}(D, I, Rt)$ subject to the constraint of geometrical constraint between depth map and normal map $L_dn(D, N) = 0$. The loss term consists of three components: photometric warping loss $L_{warp}(D, I, Rt)$, smoothness loss $L_{smooth}(D, N, I)$, image gradient matching loss $L_{grad}(D, I, Rt)$.
+ 
+\textbf{Photometric warping loss.} One main supervision of our framework comes from novel view synthesis: given an input view of a scene and camera motion, synthesize an image of the scene seen from a different view. We can synthesize an image of the target view given the image of source view, camera motion from target view to source view and depth map of target view, using 3D inverse warping. The process of warping is shown in Figure \ref{fig:3d_warping}.
+\begin{figure}
+\centering
+\includegraphics[width=0.5\textwidth]{figures/3d_warping.pdf}
+\caption{Illustraion of (a) 3D inverse warping and (b) bilinear interpolation.}
+\label{fig:3d_warping}
+\end{figure}
+Each pixel (point on the grid) of depth map is first mapped onto 3D space. The 3D point cloud is transformed based on camera motion and then mapped back to 2D plane. Each grid point in target view corresponds to one point in source view. Similar to \cite{jaderberg2015spatial}, the bilinear interpolation is implemented to calculate each pixel value of warped image as a weighted sum of four nearest neighboring pixels in source image, weighted by the square area between the projected point and neighboring point, as shown in Figure \ref{fig:3d_warping} (b).
 
-\textbf{Photometric loss}
+The warping loss is a photometric difference between the target image and warped image. $$L_{warp}(D, I, Rt) = \sum_s\sum_p|I_t - \hat{I_s}|$$
+In which, $s$ iterates the number of source image, $p$ iterates each pixel in the image, $I_t$ is the target image, $I_s$ is the source image, $\hat{I_s} = \tau(I_s, D_t, Rt)$ is the warped image, $\tau$ is the warping function as introduced above.
 
-\textbf{Image gradient matching loss}
+\textbf{Edge-aware smoothness loss.} One issue with using only view synthesis as supervision is that the back-propagation gradients are solely derived from the pixel value difference between one point in target image and weighted sum of its four neighboring points in source image. The warping loss will not be useful for learning where the point falls on low-texture regions. The predicted depth on these regions can be of any value as long as the warped region has the similar pixel value.  To overcome this issue, a prior knowledge of the scene geometry is incorporated for a smoothness loss:
+\small
+$$L_{smooth}(D) = \frac{1}{p} \sum_{p}(|\partial^2_xX_p|e^{(-\alpha||\partial_xI_p||)} + |\partial^2_yD_p|e^{(-\alpha||\partial_yI_p||)})$$
+\normalsize
 
-\textbf{Edge-aware smoothness loss}
+This smoothness term penalizes the norm of second-order gradients of depth in order to encourage smoothly changing depth values. As depth discontinuity often happens at image gradients, the smoothness loss is weighted by the a function of image gradients to prevent smoothed depth at image gradients. 
+
+\textbf{Image gradient matching loss.}
+
+To further facilitate the macthing of target image and warped image, and to encourage the depth map to be sharp, the photometric difference of gradient map of target image and gradient map of warped image is cacluated as image gradient matching loss.
+$$L_{grad}(D, I, Rt) = \sum_s(|\partial_xI_t - \partial_x\hat{I}_s| + |\partial_yI_t - \partial_y\hat{I}_s|)$$
+
 
 \subsection{Geometry consistency}
 
-\textbf{Depth2normal layer}
+\textbf{Depth2normal layer.}
 
-\textbf{Normal2depth layer}
+\textbf{Normal2depth layer.}
 
 \section{Evaluation}
 
@@ -954,5 +987,6 @@ The preparation of the \LaTeX{} and Bib\TeX{} files that implement these instruc
 
 \bigskip
 \noindent Thank you for reading these instructions carefully. We look forward to receiving your electronic files!
-
+\bibliographystyle{aaai.bst}
+\bibliography{formatting-instructions-latex-2018.bib}
 \end{document}
