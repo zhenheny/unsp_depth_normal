@@ -5,3 +5,7 @@ models
 *.png
 *.pyc
 *.pdf
+*.aux
+*.log
+*.blg
+*.synctex.gz
