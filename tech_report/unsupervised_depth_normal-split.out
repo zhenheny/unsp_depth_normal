@@ -8,7 +8,8 @@
 \BOOKMARK [2][-]{subsection.3.1}{Objective function}{section.3}% 8
 \BOOKMARK [2][-]{subsection.3.2}{Geometry consistency}{section.3}% 9
 \BOOKMARK [1][-]{section.4}{Evaluation}{}% 10
-\BOOKMARK [2][-]{subsection.4.1}{Datasets and metrics}{section.4}% 11
-\BOOKMARK [2][-]{subsection.4.2}{Ablation study}{section.4}% 12
-\BOOKMARK [2][-]{subsection.4.3}{Comparison with other methods}{section.4}% 13
-\BOOKMARK [1][-]{section.5}{Conclusion}{}% 14
+\BOOKMARK [2][-]{subsection.4.1}{Implementation details.}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.2}{Datasets and metrics}{section.4}% 12
+\BOOKMARK [2][-]{subsection.4.3}{Ablation study}{section.4}% 13
+\BOOKMARK [2][-]{subsection.4.4}{Comparison with other methods}{section.4}% 14
+\BOOKMARK [1][-]{section.5}{Conclusion}{}% 15
