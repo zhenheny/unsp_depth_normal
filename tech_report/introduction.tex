@@ -9,11 +9,18 @@ Since our world exists in 3D space and the images projection follows camera geom
 However, theoretically, those methods does not explain why human can also do reconstruction from a single image by observing videos. In addition, they can easily fail once the feature matching is wrong, \eg when SIFT\cite{} meets a wall with white color. 
 In summary, geometric based methods do not have the ability to discover new reconstruction cues using videos, and ignore the information from monocular images.
 
+\begin{figure}
+\centering
+\includegraphics[width=0.5\textwidth]{figures/visual_comparison.pdf}
+\caption{Comparison of visual outputs of our model with and without depth-normal consistency module. Top to bottom: ground truth depth and normal, our results with depth-normal consistency, our results without depth-normal consistency.}
+\label{fig:visual_comparison}
+\end{figure}
+
 Another way to do 3D reconstruction is learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{}, supervised learning of depth, \eg \cite{}, achieved impressive results over public datasets like KITTI \cite{}, NYUv2 \cite{} and SUN3D \cite{}. 
 Nevertheless, collecting ground truth depth is almost impossible for most online videos, where the learned models are hard to generalize. 
 Thus, learning depth with unlabeled videos attracts lots of attention in recent years.
 Garg \etal \cite{godard2016unsupervised} try to use FCN to predict depth from a single image, by using photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
-Although those unsupervised learning based methods are able to do single image reconstruction, the results are still far from satisfactory. As shown at the left of \figref{fig:intro}, the depth results from \cite{zhou2017unsupervised} does not well represent the structure of scene, especially when observing with computed normals. 
+Although those unsupervised learning based methods are able to do single image reconstruction, the results are still far from satisfactory. As shown at the left of \figref{fig:visual_comparison}, the depth results from \cite{zhou2017unsupervised} does not well represent the structure of scene, especially when observing with computed normals. 
 This is mostly due to photometric matching is ambiguous, \ie a color in source frames can be matched to multiple similar colors in target frames. Although researchers usually use smoothness of depth \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighbor pixels, yielding non-reasonable normal results.
 
 Our work falls in the scope of learning based 3D reconstruction with videos following the work of \cite{zhou2017unsupervised}, but is a step further towards learning a regularized 3D geometry with particular awareness of normal representation. 
@@ -51,11 +58,4 @@ Finally, after the model is trained, given a new image,  we first infer per-pixe
 %     \item We
 
 % \end{enumerate}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.5\textwidth]{figures/visual_comparison.pdf}
-\caption{Comparison of visual outputs of our model with and without depth-normal consistency module. Top to bottom: ground truth depth and normal, our results with depth-normal consistency, our results without depth-normal consistency.}
-\label{fig:visual_comparison}
-\end{figure}
 
