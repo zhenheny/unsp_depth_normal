@@ -1,15 +1,12 @@
 \BOOKMARK [1][-]{section.1}{Introduction}{}% 1
 \BOOKMARK [2][-]{subsection.1.1}{Framework}{section.1}% 2
 \BOOKMARK [1][-]{section.2}{Related Work}{}% 3
-\BOOKMARK [2][-]{subsection.2.1}{Supervised depth and normal estimation}{section.2}% 4
-\BOOKMARK [2][-]{subsection.2.2}{Unsupervised learning for low-level vision}{section.2}% 5
-\BOOKMARK [2][-]{subsection.2.3}{Spatial transformer network}{section.2}% 6
-\BOOKMARK [1][-]{section.3}{Method}{}% 7
-\BOOKMARK [2][-]{subsection.3.1}{Objective function}{section.3}% 8
-\BOOKMARK [2][-]{subsection.3.2}{Geometry consistency}{section.3}% 9
-\BOOKMARK [1][-]{section.4}{Evaluation}{}% 10
-\BOOKMARK [2][-]{subsection.4.1}{Implementation details.}{section.4}% 11
-\BOOKMARK [2][-]{subsection.4.2}{Datasets and metrics}{section.4}% 12
-\BOOKMARK [2][-]{subsection.4.3}{Ablation study}{section.4}% 13
-\BOOKMARK [2][-]{subsection.4.4}{Comparison with other methods}{section.4}% 14
-\BOOKMARK [1][-]{section.5}{Conclusion}{}% 15
+\BOOKMARK [1][-]{section.3}{Method}{}% 4
+\BOOKMARK [2][-]{subsection.3.1}{Objective function}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.2}{Geometry consistency}{section.3}% 6
+\BOOKMARK [1][-]{section.4}{Evaluation}{}% 7
+\BOOKMARK [2][-]{subsection.4.1}{Implementation details.}{section.4}% 8
+\BOOKMARK [2][-]{subsection.4.2}{Datasets and metrics}{section.4}% 9
+\BOOKMARK [2][-]{subsection.4.3}{Ablation study}{section.4}% 10
+\BOOKMARK [2][-]{subsection.4.4}{Comparison with other methods}{section.4}% 11
+\BOOKMARK [1][-]{section.5}{Conclusion}{}% 12

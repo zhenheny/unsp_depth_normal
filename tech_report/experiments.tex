@@ -51,7 +51,22 @@ An ablation study is conducted to investigate how much each component contribute
 
 \textbf{Image gradient in normal2depth layer.} When setting the $\alpha =0$ in normal2depth layer, the normal direction contributes equally to each ``shifted" depth map. With image gradient in normal2depth layer, the normal direction will only contribute to those neighboring points $q$ where there is small image gradient between central point $p$ and $q$, \ie the two points most likely lie on the same plane. With such constraint, the depth evaluation performance is better. 
 
-\textbf{Normal smoothness.} We explore the impact of normal smoothness term by evaluating normal performance comparing framework with and without normal smooothness loss term. The visualization results are shown in Figure \ref{fig:normalsmooth}. When trained with normal smoothness term, the network generates more reasonable results both qualitatively and quantitatively. 
+\textbf{Normal smoothness.} We explore the impact of normal smoothness term by evaluating normal performance comparing framework with and without normal smooothness loss term. The visualization results are shown in Figure \ref{fig:normalsmooth}. When trained with normal smoothness term, the network generates more reasonable results both qualitatively and quantitatively.
+
+\begin{table}[]
+\centering
+\caption{Ablation study of the impact of each component of the framework.}
+\label{tbl:ablation}
+\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+\multirow{2}{*}{Methods}  & \multicolumn{4}{c|}{Lower the better} & \multicolumn{3}{c|}{Higher the better}                  \\ \cline{2-8} 
+                          & Abs Rel  & Sq Rel  & RMSE  & RMSE log & $\delta < 1.25$ & $\delta < 1.25^2$ & $\delta < 1.25^3$ \\ \hline
+Ours (no d-n)             & 0.208    & 2.286   & 7.462 & 0.297    & 0.693           & 0.875             & 0.948             \\ \hline
+Ours (smooth no gradient) & 0.189    & 1.627   & 7.017 & 0.280    & 0.713           & 0.891             & 0.957             \\ \hline
+Ours (n2d no img grad)    & 0.179    & 1.566   & 7.247 & 0.272    & 0.720           & 0.895             & 0.959             \\ \hline
+Ours (no normal smooth)   & 0.172    & 1.559   & 6.794 & 0.252    & 0.744           & 0.910             & 0.969             \\ \hline
+\end{tabular}
+\end{table} 
 
 %\textbf{Image gradient matching.} There is no obvious 
 

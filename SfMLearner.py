@@ -125,6 +125,8 @@ class SfMLearner(object):
                 # # print (pred_depth2.shape)
 
                 # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
+                pred_normals.append(pred_normal)
+                pred_disps2.append(pred_disp2)
 
                 if opt.smooth_weight > 0:
                     # for i in range(len(pred_depths2)):
@@ -134,8 +136,7 @@ class SfMLearner(object):
                     #     # self.compute_smooth_loss(pred_disp2))
                     # smooth_loss /= len(pred_depths2)
                     
-                    pred_normals.append(pred_normal)
-                    pred_disps2.append(pred_disp2)
+
 
                     smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_disp[s]))
@@ -637,7 +638,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(input_mc, is_training=False)
+            pred_disp, depth_net_endpoints = disp_net(input_mc)
             pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc)
