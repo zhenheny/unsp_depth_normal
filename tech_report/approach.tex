@@ -1,20 +1,11 @@
-\section{Method}
-\label{sec:method}
-In this section, we describe the framework architecture and training procedure in detail.
-Our intuition is to train a CNN that is capable of modeling the geometry consistency of a mostly rigid scene. To facilitate the learning of the network, we explicitly propose to model the constraint between depth and normal. The training samples of the framework consist of frame sequences captured by a monocular moving camera.
-  
-\subsection{Objective function}
-To model a reasonable geometrical consistency, we propose the overall objective function as in Equation \ref{equ:1}.
-\begin{equation}
-\label{equ:1}
-\begin{split}
-L(D, I, Rt, \lambda) = L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
- +  L_{grad}(D, I, Rt) + \lambda(L_{dn}(D, N))
-\end{split}
-\end{equation}
-This objective function is a Lagrange fuction aiming to minimize the loss term $L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
- +  L_{grad}(D, I, Rt)$ subject to the constraint of geometrical constraint between depth map and normal map $L_dn(D, N) = 0$. The loss term consists of three components: photometric warping loss $L_{warp}(D, I, Rt)$, smoothness loss $L_{smooth}(D, N, I)$, image gradient matching loss $L_{grad}(D, I, Rt)$.
- 
+\section{Our approach}
+\label{sec:approach}
+
+In this section, we describe the details of our architecture and training procedure. For complement of 
+
+\subsection{Preliminaries}
+\label{sub:preliminary}
+
 \textbf{Photometric warping loss.} 
 \label{chap:warping}
 One main supervision of our framework comes from novel view synthesis: given an input view of a scene and camera motion, synthesize an image of the scene seen from a different view. We can synthesize an image of the target view given the image of source view, camera motion from target view to source view and depth map of target view, using 3D inverse warping. The process of warping is shown in Figure \ref{fig:3d_warping}.
@@ -36,6 +27,21 @@ $$L_{smooth}(D) = \frac{1}{p} \sum_{p}(|\partial^2_xX_p|e^{(-\alpha||\partial_xI
 
 This smoothness term penalizes the norm of second-order gradients of depth in order to encourage smoothly changing depth values. As depth discontinuity often happens at image gradients, the smoothness loss is weighted by the a function of image gradients to prevent smoothed depth at image gradients. 
 
+
+Our intuition is to train a CNN that is capable of modeling the geometry consistency of a mostly rigid scene. To facilitate the learning of the network, we explicitly propose to model the constraint between depth and normal. The training samples of the framework consist of frame sequences captured by a monocular moving camera.
+  
+\subsection{Objective function}
+To model a reasonable geometrical consistency, we propose the overall objective function as in Equation \ref{equ:1}.
+\begin{equation}
+\label{equ:1}
+\begin{split}
+L(D, I, Rt, \lambda) = L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
+ +  L_{grad}(D, I, Rt) + \lambda(L_{dn}(D, N))
+\end{split}
+\end{equation}
+This objective function is a Lagrange fuction aiming to minimize the loss term $L_{warp}(D, I, Rt) + L_{smooth}(D, N, I) \\
+ +  L_{grad}(D, I, Rt)$ subject to the constraint of geometrical constraint between depth map and normal map $L_dn(D, N) = 0$. The loss term consists of three components: photometric warping loss $L_{warp}(D, I, Rt)$, smoothness loss $L_{smooth}(D, N, I)$, image gradient matching loss $L_{grad}(D, I, Rt)$.
+ 
 \textbf{Image gradient matching loss.}
 
 To further facilitate the macthing of target image and warped image, and to encourage the depth map to be sharp, the photometric difference of gradient maps of target image and warped image is cacluated as gradient matching loss.
