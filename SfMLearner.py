@@ -512,7 +512,8 @@ class SfMLearner(object):
 
                 if step % opt.summary_freq == 0:
                     fetches["loss"] = self.total_loss
-                    fetches["smooth_loss"] = self.smooth_loss
+                    if self.smooth_loss != 0:
+                        fetches["smooth_loss"] = self.smooth_loss
                     fetches['pred_depth'] = self.pred_depth
                     fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
@@ -530,8 +531,8 @@ class SfMLearner(object):
                     print("Epoch: [%2d] [%5d/%5d] time: %4.4f/it loss: %.3f" \
                             % (train_epoch, train_step, opt.steps_per_epoch, \
                                 time.time() - start_time, results["loss"]))
-
-                    print(results['smooth_loss'])
+                    if "smooth_loss" in results:
+                        print(results['smooth_loss'])
                     if np.any(np.isnan(results['pred_depth'][-1])):
                         # np.save("./depth.npy", results['pred_depth'][-1])
                         print (results['pred_depth'][-1])
