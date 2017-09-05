@@ -1,4 +1,5 @@
-\section{Evaluation}
+\section{Experiments}
+\label{sec:experiments}
 
 In this section, we introduce the training details, datasets, evaluation metrics. An ablation study of how much each component of the framework contributes and a performance comparison with other supervised or unsupervised methods are also present in this section.
 
@@ -53,7 +54,7 @@ An ablation study is conducted to investigate how much each component contribute
 
 \textbf{Normal smoothness.} We explore the impact of normal smoothness term by evaluating normal performance comparing framework with and without normal smooothness loss term. The visualization results are shown in Figure \ref{fig:normalsmooth}. When trained with normal smoothness term, the network generates more reasonable results both qualitatively and quantitatively.
 
-\begin{table}[]
+\begin{table*}[]
 \centering
 \caption{Ablation study of the impact of each component of the framework.}
 \label{tbl:ablation}
@@ -66,7 +67,7 @@ Ours (smooth no gradient) & 0.189    & 1.627   & 7.017 & 0.280    & 0.713       
 Ours (n2d no img grad)    & 0.179    & 1.566   & 7.247 & 0.272    & 0.720           & 0.895             & 0.959             \\ \hline
 Ours (no normal smooth)   & 0.172    & 1.559   & 6.794 & 0.252    & 0.744           & 0.910             & 0.969             \\ \hline
 \end{tabular}
-\end{table} 
+\end{table*} 
 
 %\textbf{Image gradient matching.} There is no obvious 
 
