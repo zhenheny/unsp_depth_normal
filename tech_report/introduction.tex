@@ -5,9 +5,9 @@ Human beings are professional in recovering the 3D geometry of observed natural 
 More impressively, we leaned to achieved this ability only through visual perception of consecutive changing of outside world and ego-motion. 
 Practically, being able to do reconstruction through unlabeled videos can be widely applied to billions of online  applications like augmented reality \etc.
 
-Therefore, letting computer achieve dense 3D reconstruction ability is the central problem of computer vision. One group of approaches is geometric based method by using feature matching, \eg structure from motion (SFM) \cite{} \etc, or color matching, \eg DTAM \cite{}, \etc. 
-Since our world exists in 3D space and the images projection follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
-However, theoretically, those methods does not explain why human can also do reconstruction from a single image by observing videos. In addition, they can easily fail once the feature matching is wrong, \eg when SIFT\cite{} meets a wall with white color. 
+Therefore, letting computer achieve dense 3D reconstruction ability by watching videos is the central problem of computer vision. 
+One group of approaches is geometric based method by using feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{DBLP:conf/iccv/NewcombeLD11}, \etc.  Since our world exists in 3D space and the images projection follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
+However, theoretically, those methods does not explain why human can also do reconstruction from a single image by observing videos. In addition, they can easily fail once the feature matching is wrong, \eg when SIFT \cite{lowe2004distinctive}  feature meets a wall with white color. 
 In summary, geometric based methods do not have the ability to discover new reconstruction cues using videos, and ignore the information from monocular images.
 
 \begin{figure}

@@ -9,4 +9,8 @@ models
 *.aux
 *.log
 *.blg
+*.bbl
+*.out
+*.fls
+*.fdb_latexmk
 *.synctex.gz
