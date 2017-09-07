@@ -6,7 +6,7 @@ More impressively, we leaned to achieved this ability only through visual percep
 Practically, being able to do reconstruction through unlabeled videos can be widely applied to billions of online  applications like augmented reality \etc.
 
 Therefore, letting computer achieve dense 3D reconstruction ability by watching videos is the central problem of computer vision. 
-One group of approaches is geometric based method by using feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{DBLP:conf/iccv/NewcombeLD11}, \etc.  Since our world exists in 3D space and the images projection follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
+One group of approaches is geometric based method by using feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}, \etc.  Since our world exists in 3D space and the images projection follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
 However, theoretically, those methods does not explain why human can also do reconstruction from a single image by observing videos. In addition, they can easily fail once the feature matching is wrong, \eg when SIFT \cite{lowe2004distinctive}  feature meets a wall with white color. 
 In summary, geometric based methods do not have the ability to discover new reconstruction cues using videos, and ignore the information from monocular images.
 
@@ -17,7 +17,7 @@ In summary, geometric based methods do not have the ability to discover new reco
 \label{fig:visual_comparison}
 \end{figure}
 
-Another way to do 3D reconstruction is learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{}, supervised learning of depth, \eg \cite{}, achieved impressive results over public datasets like KITTI \cite{}, NYUv2 \cite{} and SUN3D \cite{}. 
+Another way to do 3D reconstruction is learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{long2015fully}, supervised learning of depth, \eg \cite{eigen2014depth,ummenhofer2016demon}, achieved impressive results over public datasets like KITTI \cite{}, NYUv2 \cite{silberman2012indoor} and SUN3D \cite{xiao2013sun3d}. 
 Nevertheless, collecting ground truth depth is almost impossible for most online videos, where the learned models are hard to generalize. 
 Thus, learning depth with unlabeled videos attracts lots of attention in recent years.
 Garg \etal \cite{godard2016unsupervised} try to use FCN to predict depth from a single image, by using photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
@@ -26,7 +26,7 @@ This is mostly due to photometric matching is ambiguous, \ie a color in source f
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth, height=0.25\textwidth]{figures/pipeline.pdf}
+\includegraphics[width=0.9\textwidth]{figures/pipeline.pdf}
 \caption{Framework.}
 \label{fig:pipeline}
 \end{figure*}

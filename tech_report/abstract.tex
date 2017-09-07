@@ -1,5 +1,5 @@
 \begin{abstract}
-    Learning to reconstruct 2.5D geometry from a single image in an unsupervised manner with deep convolutional network (DCN) \cite{zhou2017unsupervised} is attracting significant attention in recent years, due to that it can be widely applied to unlabeled videos online for applications such as augmented reality etc.
+    Learning to reconstruct 2.5D geometry from a single image in an unsupervised manner with deep convolutional network (DCN) is attracting significant attention in recent years, due to that it can be widely applied to unlabeled videos online for applications such as augmented reality etc.
     In this paper, to better recover the geometry inside an image, we propose to jointly estimate depth and normal in the unsupervised learning pipeline. Our estimated depth is guaranteed to be consistent with predicted normals in 3D space, yielding much more robust results for both depth and normals. 
     Specifically, we introduce two layers, i.e. a depth to normal layer and a normal to depth layer.
     The depth to normal layer takes estimated depth for each pixel as input, and compute normal directions with inner product. Then given the normal and depth, the normal to depth layer outputs a regularized depth through local planar smoothness.

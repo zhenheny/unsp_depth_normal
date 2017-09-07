@@ -5,7 +5,6 @@ models
 *.md
 *.png
 *.pyc
-*.pdf
 *.aux
 *.log
 *.blg
