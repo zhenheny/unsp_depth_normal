@@ -11,5 +11,6 @@ models
 *.bbl
 *.out
 *.fls
+*.pdf
 *.fdb_latexmk
 *.synctex.gz

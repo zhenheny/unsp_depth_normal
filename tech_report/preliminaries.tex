@@ -19,7 +19,7 @@ Then, under the assumption of Lambertian and a static rigid scene, average photo
 However, as pointed out by \cite{zhou2017unsupervised}, this assumption is not always true, due to the fact of existing moving object and occlusion. Thus, an explainability mask $\ve{M}$ is induced to leverage the issue. Formally, the masked photometric error is,
 
 \begin{align}
-\label{eqn:warp}
+\label{eqn:photometric}
 & \scr{E}_{vs}(D, \hua{T}, \hua{M}) = \sum_{s=1}^{S}\sum_{x_t}\ve{M}_s(x_t)|I_t(x_t) - \hat{I_s}(x_t)|, \nonumber \\
 & \text{s.t. ~~} d(x) > 0, \any \ve{M}_s(x)\in [0, 1]
 \end{align}
