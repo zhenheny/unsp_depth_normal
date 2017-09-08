@@ -58,11 +58,12 @@ An ablation study is conducted to investigate how much each component contribute
 \centering
 \caption{Ablation study of each component of the framework on Kitti test split.}
 \label{tbl:ablation}
+\fontsize{8.5}{9}\selectfont
 \bgroup
 \def\arraystretch{1.2}
-\begin{tabular}{|c|c|c|c|c|c|c|c|}
-\hline
-\multirow{2}{*}{Methods}  & \multicolumn{4}{c|}{Lower the better} & \multicolumn{3}{c|}{Higher the better}                  \\ \cline{2-8} 
+\begin{tabular}{c|c|c|c|c|c|c|c}
+\thickhline
+\multirow{2}{*}{Methods}  & \multicolumn{4}{c|}{Lower the better} & \multicolumn{3}{c}{Higher the better}                  \\ \cline{2-8} 
                           & Abs Rel  & Sq Rel  & RMSE  & RMSE log & $\delta < 1.25$ & $\delta < 1.25^2$ & $\delta < 1.25^3$ \\ \hline
 Ours (no d-n)             & 0.208    & 2.286   & 7.462 & 0.297    & 0.693           & 0.875             & 0.948             \\
 Ours (smooth no gradient) & 0.189    & 1.627   & 7.017 & 0.280    & 0.713           & 0.891             & 0.957             \\
@@ -88,7 +89,7 @@ Our performance is prior to two methods, \cite{godard2016unsupervised} and \cite
 \bgroup
 \def\arraystretch{1.4}
 \begin{tabular}{lllllllllll}
-\hline
+\thickhline
 \multirow{2}{*}{Method}                                      & \multirow{2}{*}{Test data}                        & \multicolumn{2}{l}{Supervision} & \multicolumn{4}{l}{Lower the better} & \multicolumn{3}{l}{Higher the better}               \\ \cline{3-11} 
                                                              &                                                   & Depth          & Pose           & Abs Rel  & Sq Rel & RMSE  & RMSE log & $\delta < 1.25$ & $\delta<1.25^2$ & $\delta<1.25^3$ \\ \hline
 \multicolumn{1}{l|}{Train set mean}                          & \multicolumn{1}{l|}{\multirow{8}{*}{Eigen split}} & \checkmark     &                & 0.403    & 5.530  & 8.709 & 0.403    & 0.593           & 0.776           & 0.878           \\
@@ -126,11 +127,11 @@ To our knowledge, there has not been works that report normal performance on KIT
 \centering
 \caption{Normal performances of our method and some baseline methods.}
 \label{tbl:normal}
-\fontsize{7}{7.5}\selectfont
+\fontsize{6.5}{7}\selectfont
 \bgroup
 \def\arraystretch{1.2}
-\begin{tabular}{l|l|l|l|l|l}
-\hline
+\begin{tabular}{l|c|c|c|c|c}
+\thickhline
 Method                        & Mean  & Median & $11.25^{\circ}$ & $22.5^{\circ}$  & $30^{\circ}$    \\ \hline
 Ground truth normal mean      & 72.39 & 64.72  & 0.031 & 0.134 & 0.243 \\
 Pre-defined scene             & 63.52 & 58.93  & 0.067 & 0.196 & 0.302 \\

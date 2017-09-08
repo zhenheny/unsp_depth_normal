@@ -20,6 +20,7 @@
 \usepackage{xspace}
 \usepackage{booktabs}
 \usepackage{mathrsfs}
+\usepackage{array}
 
 \newcommand{\figref}[1]{Fig\onedot~\ref{#1}}
 \newcommand{\equref}[1]{Eq\onedot~\eqref{#1}}
@@ -61,6 +62,14 @@
 \setlength{\pdfpageheight}{11in}
 
 \setcounter{secnumdepth}{2}  
+
+\makeatletter
+\newcommand{\thickhline}{%
+    \noalign {\ifnum 0=`}\fi \hrule height 1pt
+    \futurelet \reserved@a \@xhline
+}
+\newcolumntype{"}{@{\hskip\tabcolsep\vrule width 1pt\hskip\tabcolsep}}
+\makeatother
 
 \begin{document}
 % The file aaai.sty is the style file for AAAI Press 
