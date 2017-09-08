@@ -4,5 +4,5 @@
     Specifically, we introduce two layers, i.e. a depth to normal layer and a normal to depth layer.
     The depth to normal layer takes estimated depth for each pixel as input, and compute normal directions with inner product. Then given the normal and depth, the normal to depth layer outputs a regularized depth through local planar smoothness.
     Finally, to train the network we apply the photometric loss, and further require gradient smoothness for both depth and normals predictions. 
-    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperform the state-of-arts, reducing both depth and normal error over 20$\%$ relatively, which demonstrates the benefits from the normal representation.
+    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperforms the state-of-arts, reducing both depth and normal errors over 20$\%$ relatively, which demonstrates the benefits from the normal representation.
 \end{abstract}
