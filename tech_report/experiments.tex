@@ -141,3 +141,15 @@ Ours                          & 47.52 & 33.98  & 0.149 & 0.369 & 0.473 \\ \hline
 \end{tabular}
 \egroup
 \end{table}
+
+\section{Indoor scene exploration}
+
+Besides the outdoor dataset, we also directly apply our framework on indoor dataset: NYU v2 dataset \cite{silberman2012indoor}. We pick a subset for the preliminary experiment. All training and testing data in NYU dataset related to the scene ``study room" are picked for training and testing in our experiment. As shown in the Fig. \ref{fig:nyu_visual}, our framework performs reasonablly good on scenes that have multiple intersecting planes, but may fail on scenes that have only one object.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.5\textwidth]{figures/indoor_visual.pdf}
+%\caption{1}
+\caption{Qualitative results of our framework on a subset of NYU v2 dataset.}
+\label{fig:nyu_visual}
+\end{figure}
