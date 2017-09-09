@@ -2,6 +2,7 @@
 *.npy
 eval
 models
+unsupervised_depth_normal-split.pdf
 *.md
 *.png
 *.pyc
@@ -11,7 +12,6 @@ models
 *.bbl
 *.out
 *.fls
-*.pdf
 *.DS_Store
 *.fdb_latexmk
 *.synctex.gz
