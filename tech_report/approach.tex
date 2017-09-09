@@ -7,7 +7,7 @@ In our scenario, given target image $I$, we aim to learn to estimate both depth 
 In reconstruction, depth and normal are two strongly correlated information, which usually follow locally linear orthogonality correlation. Formally, for each pixel $x_i$, such a correlation can be written as a quadratic minimization for a set of linear equations, either given depth or normal,
 \begin{align}
 \label{eq:orthognal}
-&\scr{E}_{x_i}(D, N) = ||[\cdots,\omega_{ji}(\phi(x_j) - \phi(x_i)), \cdots]^T  N(x_i)||^2, \nonumber \\
+&\scr{L}_{x_i}(D, N) = ||[\cdots,\omega_{ji}(\phi(x_j) - \phi(x_i)), \cdots]^T  N(x_i)||^2, \nonumber \\
 &~\text{where~} \phi(x) = D(x)\ve{K}^{-1}h(x), \text{~} \|N(x_i)\|_2 = 1, \nonumber\\
 &~\text{~~~~~~~~} \omega_{ji} > 0 \text{~~if~~} x_j \in \hua{N}(x_i)
 \end{align}
@@ -61,27 +61,27 @@ D_n(x_j) = \sum_{i\in\hua{N}}\hat{\omega}_{ij}D_e(x_j | x_i), \text{~~}
 \label{sub:training_losses}
 In this section, we describe our training strategy. In order to supervise both the depth and normal representations, we can directly applied the loss in \equref{eqn:full} by replacing the output from network $D_o$ with the output after normal to depth layer $D_n$ to train the model. We show in our experiments (\secref{sec:experiments}, by doing this, we outperform the previous state-of-the-art by around 10$\%$ in depth estimation using the same network architecture.
 
-Additionally, with normal representation, we additionally require smoothness over neighboring normal values, which provides high order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{E}_{s}$ in \equref{eqn:regular}, while we apply the first order gradient, \ie $\scr{E}_{s}(N, 1)$. 
+Additionally, with normal representation, we additionally require smoothness over neighboring normal values, which provides high order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{L}_{s}$ in \equref{eqn:regular}, while we apply the first order gradient, \ie $\scr{L}_{s}(N, 1)$. 
 
 Last but not the least, matching corresponding pixels between frames is another central factor to find correct geometry. Additional to photometric error from matching pixel colors, matching image gradient is more robust to lighting variations, which was frequently applied in computing optical flow~\cite{li2017pyramidal}. 
 In our case, we compute a gradient map of the target image and synthesized target images, and include the gradient matching error to our loss function. Formally, the loss is represented as,
 \begin{align}
 \label{equ:gradient}
-\scr{E}_{g}(D_n, \hua{T}, \hua{M}) = \sum_{s=1}^{S}\sum_{x_t}\ve{M}_s(x_t)\|\nabla I_t(x_t) - \nabla \hat{I_s}(x_t)\|_1, \nonumber
+\scr{L}_{g}(D_n, \hua{T}, \hua{M}) = \sum_{s=1}^{S}\sum_{x_t}\ve{M}_s(x_t)\|\nabla I_t(x_t) - \nabla \hat{I_s}(x_t)\|_1, \nonumber
 \end{align}
 In our experimental section, we observe additional benefits by having this match, especially at indoor scenario, where colors are often homogeneous on walls.
 In the future, we hope to investigate more in matching criteria such as with stronger descriptors like SIFT~\cite{liu2011sift} or higher level convolutional features.
 
 In summary, our final learning loss for multi-scale learning is,
 \begin{align}
-&\scr{E}(\hua{D}, \hua{N}, \hua{T}, \hua{M}) = \scr{E}_{o}(\{D_{nl}\}, \hua{T}, \hua{M}) + \nonumber\\
-&\text{~~~~~~~~~}\sum_l\{\lambda_g\scr{E}_{g}(D_{nl},\hua{T},\hua{M}) + \lambda_n\scr{E}_{s}(N_l, 1)\}
+&\scr{L}(\hua{D}, \hua{N}, \hua{T}, \hua{M}) = \scr{L}_{o}(\{D_{nl}\}, \hua{T}, \hua{M}) + \nonumber\\
+&\text{~~~~~~~~~}\sum_l\{\lambda_g\scr{L}_{g}(D_{nl},\hua{T},\hua{M}) + \lambda_n\scr{L}_{s}(N_l, 1)\}
 \end{align}
 where $\hua{D} = \{D_{nl}\}$ and $\hua{N} = \{N_{l}\}$ are the set of depth maps and normal maps for the target view.
 
 %Our intuition is to train a CNN that is capable of modeling the geometry consistency of a mostly rigid scene. To facilitate the learning of the network, we explicitly propose to model the constraint between depth and normal. The training samples of the framework consist of frame sequences captured by a monocular moving camera.normalsize
 
-\paragraph{Training the model.} For network architectures, similar to \cite{zhou2017unsupervised} and \cite{godard2016unsupervised}, we adopt the DispNet \cite{mayer2016large} architecture with skip connections as in \cite{zhou2017unsupervised}. All \textit{conv} layers are followed by a ReLU activation except for the top prediction layer. We train the network from scratch, since too many losses at beginning could be hard to optimize, we choose a two stage training strategy by first train the network with $\scr{E}_{o}$ with 5 epochs and then fine-tune it with the full loss for 1 epoch. We will provide ablation study of each term in our experiments.
+\paragraph{Training the model.} For network architectures, similar to \cite{zhou2017unsupervised} and \cite{godard2016unsupervised}, we adopt the DispNet \cite{mayer2016large} architecture with skip connections as in \cite{zhou2017unsupervised}. All \textit{conv} layers are followed by a ReLU activation except for the top prediction layer. We train the network from scratch, since too many losses at beginning could be hard to optimize, we choose a two stage training strategy by first train the network with $\scr{L}_{o}$ with 5 epochs and then fine-tune it with the full loss for 1 epoch. We will provide ablation study of each term in our experiments.
 
 
 % To model a reasonable geometrical consistency, we propose the overall objective function as in Equation \ref{equ:1}.
