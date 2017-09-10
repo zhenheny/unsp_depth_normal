@@ -1,28 +1,28 @@
 \section{Experiments}
 \label{sec:experiments}
 
-In this section, we introduce the training details, datasets, evaluation metrics. An ablation study of how much each component of the framework contributes and a performance comparison with other supervised or unsupervised methods are also present.
+In this section, we introduce implementation details, datasets, evaluation metrics. An ablation study of how much each component of the framework contributes and a performance comparison with other supervised or unsupervised methods are also presented.
 
 \subsection{Implementation details.}
 
-Our framework is implemented with publicly available TensorfFlow \cite{abadi2016tensorflow} platform and has 34 million trainable variables in total. During training, batch normalization \cite{ioffe2015batch} is used for all layers except for output layer. Adam optimizer is implemented with parameters $\beta_1 = 0.9$, $\beta_2=0.000$, $\epsilon=10^{-8}$. Learning rate,and batch size are set to be $2\times10^{-3}$ and 4 respectively.
+Our framework is implemented with publicly available TensorfFlow \cite{abadi2016tensorflow} platform and has 34 million trainable variables in total. During training, Adam optimizer is implemented with parameters $\beta_1 = 0.9$, $\beta_2=0.000$, $\epsilon=10^{-8}$. Learning rate,and batch size are set to be $2\times10^{-3}$ and 4 respectively. Batch normalization \cite{ioffe2015batch} is not used as we didn't observe a performance improvement with it.
 
-The length of input sequence is fixed to be 3 and the input frames are resized to $128 \times 416$. The middle frame is treated as target image and the other two are source images. With the settings above, the network starts to show meaningful results after 3 epochs of training, and converge at the end of 5th epoch. On a Nvidia Titan X (Pascal) GPU, the training process takes around 6 hours. The number of epochs and absolute time needed for convergence is much less than \cite{godard2016unsupervised} (50 epochs, 25 hours) and \cite{zhou2017unsupervised} (15 epochs).
+The length of input sequence is fixed to be 3 and the input frames are resized to $128 \times 416$. The middle frame is treated as the target image and the other two are source images. With the settings above, the network starts to show meaningful results after 3 epochs of training, and converge at the end of 5th epoch. On a Nvidia Titan X (Pascal) GPU, the training process takes around 6 hours. The number of epochs and absolute time needed for convergence is much less than \cite{godard2016unsupervised} (50 epochs, 25 hours) and \cite{zhou2017unsupervised} (15 epochs).
 
-As the predicted depth is not absolute value but defined up to a scale, we correct the scale factor by enforcing the predicted median matching the ground truth median. That is, multiplying the predicted depth by a factor: $\hat{f} = \mathrm{median}(D_{gt}) / \mathrm{median}(D_{pred})$. 
+As the predicted depth is not absolute value but defined up to a scale, we correct the scale factor by enforcing the predicted median matching the ground truth median. That is, multiplying the predicted depth by a factor $\hat{f}$: $\hat{f} = \mathrm{median}(D_{gt}) / \mathrm{median}(D_{pred})$. 
 
 \subsection{Datasets and metrics}
 \textbf{Training.}
-Theorectically, our framework can be trained on frame sequences captured with a monocular camera. To better compare with other methods, we train the framework on popular KITTI 2015 \cite{geiger2012we} dataset. KITTI 2015 dataset is a large dataset suite for multiple tasks, including optical flow, 3D object detection and tracking, semantic segmenations, etc. All RGB and gray-scale videos are captured by stereo cameras from 61 scenes, with a typical image being $1242 \times 375$ in original size.
+Theorectically, our framework can be trained on any frame sequences captured with a monocular camera. To better compare with other methods, we evaluate on the popular KITTI 2015 \cite{geiger2012we} dataset. KITTI 2015 dataset is a large dataset suite for multiple tasks, including optical flow, 3D object detection and tracking, semantic segmenations, etc. The raw data of this dataset contains RGB and gray-scale videos, which are captured by stereo cameras from 61 scenes, with a typical image being $1242 \times 375$ in original size.
 
-Raw videos captured by both left and right cameras are downloaded, which are treated independently for training. The same training frame sequences as in \cite{zhou2017unsupervised} are used for training: training split used by Eigen \etal  \cite{eigen2014depth} excluding frames from test scenes and static sequences. This results in a total of 40,109 trainig sequences and 4431 validation sequences. Different from \cite{godard2016unsupervised}, no other data augmentation has been performed.
+Videos captured by both left and right cameras are used for training, but treated independently. The same training frame sequences as in \cite{zhou2017unsupervised} are used: training split used by Eigen \etal  \cite{eigen2014depth} excluding frames from test scenes and static sequences. This results in a total of 40,109 trainig sequences and 4431 validation sequences. Different from \cite{godard2016unsupervised}, no other data augmentation has been performed.
 
 \textbf{Testing.} 
 There are two splits of KITTI 2015 test data: (1) KITTI split contains 200 high-quality disparity images provided as part of official KITTI training set; (2) Eigen split contains 697 test images proposed by \cite{eigen2014depth}. To better compare with other unsupervised and supervised methods, we present evaluation methods on both two splits. 
 
-The depth ground truth of KITTI split contains sparse depth map with CAD models in place of moving cars. It provides better quality dpeth than projected Velodyne laser scanned points but has ambiguous depth value on object boundaries where the CAD model doesn't align with the images. The predicted depth is capped at 80 meters as in \cite{godard2016unsupervised} and \cite{zhou2017unsupervised}. The depth ground truth of Eigen split is generated by projecting 3D points scanned from Velodyne laser to the camera view. This produces depth values for less than 5\% of all pixels in the RGB images. To be consistent when comparing with other methods, the same crop as in \cite{eigen2014depth} is implemented when testing.
+The depth ground truth of Eigen split is generated by projecting 3D points scanned from Velodyne laser to the camera view. This produces depth values for less than 5\% of all pixels in the RGB images. To be consistent when comparing with other methods, the same crop as in \cite{eigen2014depth} is implemented when testing. The depth ground truth of KITTI split contains sparse depth map with CAD models in place of moving cars. It provides better quality depth than projected Velodyne laser scanned points but has ambiguous depth value on object boundaries where the CAD model doesn't align with the images. The predicted depth is capped at 80 meters as in \cite{godard2016unsupervised} and \cite{zhou2017unsupervised}.
 
-The normal ground truth for two splits is generated by applying depth2normal layer as described in \ref{sec:related} on inpainted depth ground truth. The inpainting algorithm by \cite{silberman2012indoor} has been used. The inpainting depth and normal results are shown in later sections for visualization. However, for evaluation, only the sparse points with depth ground truth are used.
+The normal ground truth for two splits is generated by applying depth-to-normal layer on inpainted depth ground truth. The inpainting algorithm by \cite{silberman2012indoor} has been used. For depth and normal evaluation, only the sparse points with depth ground truth are used.
 
 \textbf{Metrics.} We apply the same depth evaluation and normal evaluation metrics as in \cite{eigen2014depth} and \cite{eigen2015predicting}. For depth evaluation, we use the code provided by~\cite{zhou2017unsupervised} and for normal, we implement ourselves and verified the correctness through evaluating results from \cite{eigen2015predicting}.
 
@@ -46,17 +46,17 @@ The normal ground truth for two splits is generated by applying depth2normal lay
 
 An ablation study is conducted to investigate how much each component contributes to the final performance, evaluated on the KITTI split.
 
-\textbf{Depth and normal geometry consistency.} The impact of adding depth-normal consistency is explored by removing normal2depth layer in the framework. The inverse warping process introduced in Sec. \ref{chap:warping} takes input image and directly predicted depth map as input. The performance of framework trained without normal2depth layer is shown as the row ``Ours (no d-n)" in Tab. \ref{tbl:ablation}. Besides the performance gain after adding depth and normal consistency, the network converges considerably faster compared to without leveraging such consistency: the full network converges after 5 epochs of training and the network without such consistency regularization converges at 13th epoch.
+\textbf{Depth and normal geometry consistency.} The impact of adding depth-normal consistency is explored by removing normal-to-depth layer in the framework. The inverse warping process introduced in Sec. \ref{chap:warping} takes input image and directly predicted depth map as input. The performance of framework trained without normal-to-depth layer is shown as the row ``Ours (no d-n)" in Tab. \ref{tbl:ablation}. Besides the performance gain after adding depth and normal consistency, the network converges considerably faster compared to without leveraging such consistency: the full network converges after 5 epochs of training and the network without such consistency regularization converges at 15th epoch.
 
 \textbf{Image gradient in smoothness term.} We explore the effectivness of adding image gradient into smoothness term. By setting $\alpha=0$ in the edge-aware smoothness loss, the image gradient has no effect on the weight of smoothness loss. The results of this variant is shown as ``Ours (smooth no gradient)" in Tab. \ref{tbl:ablation}.
 
-\textbf{Image gradient in normal2depth layer.} When setting the $\alpha =0$ in normal2depth layer, the normal direction contributes equally to each ``shifted" depth map. With image gradient in normal2depth layer, the normal direction will only contribute to those neighboring points $q$ where there is small image gradient between central point $p$ and $q$, \ie the two points most likely lie on the same plane. With such constraint, the depth evaluation performance is better. 
+\textbf{Image gradient in normal2depth layer.} When setting the $\alpha =0$ in normal-to-depth layer, the normal direction contributes equally to each ``shifted" depth map. With image gradient in normal-to-depth layer, the normal direction will only contribute to those neighboring points $q$ where there is small image gradient between central point $p$ and $q$, \ie the two points most likely lie on the same plane. With such constraint, the depth evaluation performance is better. 
 
-\textbf{Normal smoothness.} We explore the impact of normal smoothness term by evaluating normal performance comparing framework with and without normal smooothness loss term. The visualization results are shown in Fig. \ref{fig:normalsmooth}. When trained with normal smoothness term, the network generates more reasonable results both qualitatively and quantitatively.
+\textbf{Normal smoothness.} We explore the impact of normal smoothness term by evaluating normal performance comparing framework with and without normal smooothness loss term. The visualization results are shown in Tab. \ref{tbl:normal}.
 
 \begin{table*}[]
 \centering
-\caption{Ablation study of each component of the framework on Kitti test split.}
+\caption{Depth performance of our framework variants on Kitti test split.}
 \label{tbl:ablation}
 \fontsize{8.5}{9}\selectfont
 \bgroup
@@ -77,9 +77,7 @@ Ours (no normal smooth)   & 0.172    & 1.559   & 6.794 & 0.252    & 0.744       
 
 \subsection{Comparison with other methods}
 
-To compare with other supervised and unsupervised methods, our framework is evaluated on both KITTI and Eigen split. The depth evaluation results are shown in Tab. \ref{tbl:sota}. Our method outperforms some  unsupervised methods \cite{zhou2017unsupervised} and \cite{kuznietsov2017semi} and even outperforms some supervised methods \cite{eigen2014depth} and \cite{liu2016learning}. 
-
-Our performance is prior to two methods, \cite{godard2016unsupervised} and \cite{kuznietsov2017semi} (supervised, semi-supervised). It is worth noting that \cite{kuznietsov2017semi} (supervised, semi-supervised) utilizes the depth ground truth and \cite{godard2016unsupervised} takes stereo image pairs as input, which implies the camera motion between two images are known. On both two test splits, our method outperforms \cite{godard2016unsupervised} on the Sq Rel metric. As Sq Rel metric penalizes large depth difference, our method generates depth maps without much outlier depths.
+To compare with other supervised and unsupervised methods, our framework is evaluated on both KITTI and Eigen split. The depth evaluation results are shown in Tab. \ref{tbl:sota}. Our method outperforms some some supervised \cite{eigen2014depth}, \cite{liu2016learning} and unsupervised methods \cite{zhou2017unsupervised}, \cite{kuznietsov2017semi} and only prior to \cite{godard2016unsupervised} and \cite{kuznietsov2017semi} (supervised). It is worth noting that \cite{kuznietsov2017semi} (supervised) utilizes the depth ground truth and \cite{godard2016unsupervised} takes stereo image pairs as input, which implies the camera motion is known. On Kitti test split, our method outperforms \cite{godard2016unsupervised} on the Sq Rel metric. As Sq Rel metric penalizes large depth error, our method generates depth maps without much outlier depths.
 
 \begin{table*}[]
 \centering
@@ -119,9 +117,7 @@ Some qualitative depth estimation results are shown in Fig. \ref{fig:examples}.
 \label{fig:examples}
 \end{figure*}
 
-To our knowledge, there has not been works that report normal performance on KITTI 2015 dataset. We thus compare the our normal performance with normals generated by applying depth2normal layer on depth maps of two publicly available unsupervised methods \cite{zhou2017unsupervised} and \cite{godard2016unsupervised}. As shown in Tab. \ref{tbl:normal}, our method outperforms both methods under all metrics.
-
-To our knowledge, there has not been works that report normal performance on KITTI 2015 dataset. We thus compare our normal performance with baseline methods and normals generated by applying depth-to-normal layer on depth maps of \cite{zhou2017unsupervised}. The baseline methods include ground truth normal mean, normals from pre-defined scene, our framework without second stage training, \ie without normal smoothness term and our full framework. As shown in Tab. \ref{tbl:normal}, our full model outperforms other methods under all metrics.
+To our knowledge, there has not been works that report normal performance on KITTI 2015 dataset. We thus compare our normal performance with baseline methods and normals generated by applying depth-to-normal layer on depth maps of \cite{zhou2017unsupervised}. The baseline methods include ground truth normal mean, normals from pre-defined scene, our framework without second stage training, \ie without normal smoothness term and our full framework. The pre-defined baseline is inspired by by the common scene in Kitti dataset: street plane with walls on both sides. We thus generate a pre-defined normal map based on the scene: 20\% of left and right area of the images are walls and the central 60\% is road.  As shown in Tab. \ref{tbl:normal}, our full model outperforms other baselines under all metrics.
 
 \begin{table}[] \small
 \centering
