@@ -3,12 +3,12 @@
 In order to make the paper self-contained, we first introduce several preliminaries proposed in the unsupervised learning pipelines \cite{zhou2017unsupervised,godard2016unsupervised}. The core idea behind, as discussed in \ref{sec:related}, is inverse warping from target view to source view with awareness of 3D geometry, as illustrated in Fig. \ref{fig:3d_warping}(a), which we will elaborate in the following paragraphs.
 
 \paragraph{Perspective projection between multiple views.}
-Let $D(x_t)$ be the depth value of the target view at image coordinate $x_t$, and $\ve{K}$ be the intrinsic parameter of the camera. Suppose the relative pose from the target view to source view is a rigid transformation $\ve{T}_{t\rightarrow s} = \{\ve{R} | \ve{t}\} \in \hua{S}\hua{E}(3)$, and $h(x)$ is the homogeneous coordinate given $x$. The perspective warping to localize corresponding pixels can be formulated as, 
+Let $D(x_t)$ be the depth value of the target view at image coordinate $x_t$, and $\ve{K}$ be the intrinsic parameter of the camera. Suppose the relative pose from the target view to source view is a rigid transformation $\ve{T}_{t\rightarrow s} = [\ve{R} | \ve{t}] \in \hua{S}\hua{E}(3)$, and $h(x)$ is the homogeneous coordinate given $x$. The perspective warping to localize corresponding pixels can be formulated as, 
 \begin{align}
 \label{eqn:warp}
 D(x_s)h(x_s) = \ve{K}\ve{T}_{t\rightarrow s}D(x_t)\ve{K}^{-1}h(x_t),
 \end{align}
-and the image coordinate $x_s$ can be obtained by dehomogenisation of $d(x_s)h(x_s)$. Thus, $x_s$ and $x_t$ is a pair of matching coordinates, and we are able to compare the similarity between the two to valide the correctness of geometry.
+and the image coordinate $x_s$ can be obtained by dehomogenisation of $d(x_s)h(x_s)$. Thus, $x_s$ and $x_t$ is a pair of matching coordinates, and we are able to compare the similarity between the two to valide the correctness of structure.
 
 
 \paragraph{Photometric error from view synthesis.} 
