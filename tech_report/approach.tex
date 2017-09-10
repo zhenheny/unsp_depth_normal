@@ -1,9 +1,15 @@
+\vspace{-0.7\baselineskip}
 \section{Geometry estimation with edge aware depth-normal consistency}
 \label{sec:approach}
+\vspace{-0.3\baselineskip}
+
 In our scenario, given target image $I$, we aim to learn to estimate both depth and normal simultaneously. Formally, let $N$ be the predicted normal from our model, we embed it into the training pipeline and make it a stronger regularization for estimating depth $D$, which help to train more robust model.
 
+\vspace{-0.5\baselineskip}
 \subsection{Depth and normal orthogonality.}
-\label{sub:depth_and_normal_orthogonality_}
+\label{sub:depth_and_normal_orthogonality}
+\vspace{-0.3\baselineskip}
+
 In reconstruction, depth and normal are two strongly correlated information, which usually follow locally linear orthogonality correlation. Formally, for each pixel $x_i$, such a correlation can be written as a quadratic minimization for a set of linear equations, either given depth or normal,
 \begin{align}
 \label{eq:orthognal}
@@ -15,7 +21,7 @@ where $\scr{N}(x_i)$ is a set of predefined neighborhood pixels of $x_i$, and $N
 
 However, as introduced in Sec. \ref{sec:related}, most supervised works try to predict the two information independently without considering their correlations, SURGE~\cite{peng2016depth} proposes to apply the consistency by a post CRF processing only over large planar regions. In our case, we enforce the consistency over the full image, and directly applied to network output, which better benefits the model learning. Specifically, to model their consistency, we developed two layers by solving \equref{eq:orthognal}, \ie depth to normal layer and normal to depth layer. 
 
-\paragraph{Infer normal from depth.} 
+\textbf{Infer normal from depth.} 
 \label{chap:d2n}
 Given a depth map $D$, for each point $x_i$, in order to get $N(x_i)$ by solving \equref{eq:orthognal}, we need to firstly define $\hua{N}(x_i)$ and $\omega_{ji}$, and then solve the set of linear equations. To deal with the first issue, we choose using the 8-neighbor convention to compute normal directions, which considerably more robust than 4-neighbor convention. 
 However, it is not always good to equally weight all pixels due to depth discontinuity or dramatic normal changes may occur nearby. Thus, for computing $\omega_{ji}$, we set it large neighboring pixels $x_j$ having similar color with $x_i$, while smaller otherwise. Formally, $\omega_{ji} = \exp\{-\alpha|I(x_j) - I(x_i)|\}$ and $\alpha = 0.1$ in our case. 
@@ -28,7 +34,7 @@ Then, for each pair, cross product of their difference vector \wrt $x_i$ is comp
 &\ve{n} = \sum_{p\in\hua{P}}(\omega_{p_{0}, x_i}(\phi(p_{0}) - \phi(x_i)) \times \omega_{p_{1}, x_i}(\phi(p_{1}) - \phi(x_i))), \nonumber \\
 &N(x_i) = \ve{n} / \|\ve{n}\|_2
 \end{align}
-We show the process of calculating normal direction in Fig. \ref{fig:d2n}. 
+The process of calculating normal direction is in Fig. \ref{fig:d2n}. 
 
 %for each $q\in\theta(p)$, $R_q$ satisfies $(q-p)\cdot(r-p) = 0, \quad r \in R_q$.
 % The normal direction of each point is computed based on the neighboring points after projecting to 3D space. The process of calculating normal direction of point $p$ is shown in Figure \ref{fig:d2n}. $\theta(p)$ is a set of neighboring (8) points of $p$. 
@@ -37,11 +43,12 @@ We show the process of calculating normal direction in Fig. \ref{fig:d2n}.
 \begin{figure}
 \centering
 \includegraphics[width=0.5\textwidth]{figures/d2n.pdf}
-\caption{Depth2normal layer. $p, q, \theta(p), q_{\theta(p)}$ are 2D points, and $\hat{p}, \hat{q}, \hat{\theta}(p), \hat{q}_{\theta(p)}$ are corresponding points projected to 3D space.}
+\caption{Depth-to-normal layer. $p, q, \theta(p), q_{\theta(p)}$ are 2D points, and $\hat{p}, \hat{q}, \hat{\theta}(p), \hat{q}_{\theta(p)}$ are corresponding points projected to 3D space.}
+\vspace{-0.7\baselineskip}
 \label{fig:d2n}
 \end{figure}
 
-\paragraph{Expect depth from normal.} 
+\textbf{Expect depth from normal.} 
 Due to the fact that we do not have ground truth normal for supervision, it is necessary to recover depth from normal to receive the supervision from photometric error as discussed in Sec.~\ref{sec:preliminaries}.
 To recover depth, given normal map $N$, we still need to solve \equref{eq:orthognal}. However, there is no unique solution. Thus, for simplicity, we provide an initial depth map $D_o$ as input, which might lack normal smoothness, \eg depth map from network output. Then, given $D_o(x_i)$, the depth solution for neighboring pixel is unique and can be easily computed. Formally, let $D_e(x_j | x_i) = \psi(D_o(x_i), N(x_i))$ be the expected depth value calculated for a neighbor pixel $x_j$ \wrt $x_i$. 
 However, when computing over the full image, we still need to solve 8 equations jointly for each pixel from its 8 neighbors. Finally, by minimum square estimation, the solution for the expected depth value is,
@@ -56,9 +63,11 @@ D_n(x_j) = \sum_{i\in\hua{N}}\hat{\omega}_{ij}D_e(x_j | x_i), \text{~~}
 %As there are multiple points in the set $\theta(p)$, multiple depth maps can be recovered corresponding to each point $q \in \theta(p)$. In our pratice, the $\theta(p)$ includes 8 nearest points around point $p$. The 8 depth maps are weighted averaged to produce a reasonable depth output. As depth and normal discontinuity often happens where image gradients are large, similar to using image gradient in smoothness loss term, the image gradients are also calculated as weights to determine how much of each depth map contribute to final output. The output depth map is calculated as:
 % $$z_p = \sum_{\theta(p)}z_q\frac{e^{(-\alpha|\partial_{\overrightarrow{p-q}}I_p|)}}{\sum_{\theta(p)}e^{(-\alpha|\partial_{\overrightarrow{p-q}}I_p|)}}, q\in\theta(p)$$
 % In which, $\partial_{|\overrightarrow{p-q}}I_p|$ is the image gradient value along the $\overrightarrow{p-q}$ direction.
-
+\vspace{-0.7\baselineskip}
 \subsection{Training losses}
 \label{sub:training_losses}
+\vspace{-0.3\baselineskip}
+
 In this section, we describe our training strategy. In order to supervise both the depth and normal representations, we can directly applied the loss in \equref{eqn:full} by replacing the output from network $D_o$ with the output after normal to depth layer $D_n$ to train the model. We show in our experiments (\secref{sec:experiments}, by doing this, we outperform the previous state-of-the-art by around 10$\%$ in depth estimation using the same network architecture.
 
 Additionally, with normal representation, we additionally require smoothness over neighboring normal values, which provides high order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{L}_{s}$ in \equref{eqn:regular}, while we apply the first order gradient, \ie $\scr{L}_{s}(N, 1)$. 
@@ -74,6 +83,7 @@ In the future, we hope to investigate more in matching criteria such as with str
 
 In summary, our final learning loss for multi-scale learning is,
 \begin{align}
+\label{eq:full_loss}
 &\scr{L}(\hua{D}, \hua{N}, \hua{T}, \hua{M}) = \scr{L}_{o}(\{D_{nl}\}, \hua{T}, \hua{M}) + \nonumber\\
 &\text{~~~~~~~~~}\sum_l\{\lambda_g\scr{L}_{g}(D_{nl},\hua{T},\hua{M}) + \lambda_n\scr{L}_{s}(N_l, 1)\}
 \end{align}
@@ -81,7 +91,7 @@ where $\hua{D} = \{D_{nl}\}$ and $\hua{N} = \{N_{l}\}$ are the set of depth maps
 
 %Our intuition is to train a CNN that is capable of modeling the geometry consistency of a mostly rigid scene. To facilitate the learning of the network, we explicitly propose to model the constraint between depth and normal. The training samples of the framework consist of frame sequences captured by a monocular moving camera.normalsize
 
-\paragraph{Training the model.} For network architectures, similar to \cite{zhou2017unsupervised} and \cite{godard2016unsupervised}, we adopt the DispNet \cite{mayer2016large} architecture with skip connections as in \cite{zhou2017unsupervised}. All \textit{conv} layers are followed by a ReLU activation except for the top prediction layer. We train the network from scratch, since too many losses at beginning could be hard to optimize, we choose a two stage training strategy by first train the network with $\scr{L}_{o}$ with 5 epochs and then fine-tune it with the full loss for 1 epoch. We will provide ablation study of each term in our experiments.
+\textbf{Training the model.} For network architectures, similar to \cite{zhou2017unsupervised} and \cite{godard2016unsupervised}, we adopt the DispNet \cite{mayer2016large} architecture with skip connections as in \cite{zhou2017unsupervised}. All \textit{conv} layers are followed by a ReLU activation except for the top prediction layer. We train the network from scratch, since too many losses at beginning could be hard to optimize, we choose a two stage training strategy by first train the network with $\scr{L}_{o}$ with 5 epochs and then fine-tune it with the full loss for 1 epoch. We will provide ablation study of each term in our experiments.
 
 
 % To model a reasonable geometrical consistency, we propose the overall objective function as in Equation \ref{equ:1}.
