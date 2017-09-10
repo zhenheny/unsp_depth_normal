@@ -1,8 +1,8 @@
 \begin{abstract}
-    Learning to reconstruct 2.5D geometry from a single image in an unsupervised manner with deep convolutional network (DCN) is attracting significant attention in recent years, due to that it can be widely applied to unlabeled videos online for applications such as augmented reality etc.
-    In this paper, to better recover the geometry inside an image, we propose to jointly estimate depth and normal in the unsupervised learning pipeline. Our estimated depth is guaranteed to be consistent with predicted normals in 3D space, yielding much more robust results for both depth and normals. 
-    Specifically, we introduce two layers, i.e. a depth to normal layer and a normal to depth layer.
-    The depth to normal layer takes estimated depth for each pixel as input, and compute normal directions with inner product. Then given the normal and depth, the normal to depth layer outputs a regularized depth through local planar smoothness.
-    Finally, to train the network we apply the photometric loss, and further require gradient smoothness for both depth and normals predictions. 
-    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperforms the state-of-arts, reducing both depth and normal errors over 20$\%$ relatively, which demonstrates the benefits from the normal representation.
+    Learning to reconstruct depths in a single image by watching unlabeled videos via deep convolutional network (DCN) is attracting significant attention in recent years, \eg \cite{zhou2017unsupervised}. 
+    In this paper, we introduce normal representation for the unsupervised depth estimation pipeline, and our estimated depths are guaranteed to be compatible with predicted normals, yielding more robust geometry results. 
+    Specifically, we formulate an edge-aware depth-normal consistency term, and solve it by constructing a depth-to-normal layer and a normal-to-depth layer inside of the DCN.
+    The depth-to-normal layer takes estimated depths as input, and computes normal directions using cross production based on neighboring pixels. Then given the estimated normals, the normal-to-depth layer outputs a regularized depth map through local planar smoothness. Both of the two layers are computed with awareness of edge inside the image.
+    Finally, to train the network, we apply the photometric error and gradient smoothness for both depth and normal predictions.
+    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperforms the state-of-arts, reducing both depth and normal errors over relative 20$\%$ and 10$\%$ respectively, which demonstrates the benefits from our approach.
 \end{abstract}

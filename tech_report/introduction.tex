@@ -1,14 +1,14 @@
 \section{Introduction}
 \label{sec:intro}
 % depth normal is natural ability, without groud truth
-Human beings are professional in recovering the 3D geometry of observed natural scenes at very detailed level in real time, even from a single image. 
-More impressively, we leaned to achieve this ability only through visual perception of consecutive changing of outside world and ego-motion. 
-Practically, being able to do reconstruction through unlabeled videos can be widely applied to large amount of real applications like augmented reality, robotics \etc.
+Human beings are professional in recovering the 3D geometry of observed natural scenes at a very detailed level in real-time, even from a single image. 
+More impressively, we leaned to achieve this ability only through visual perception of consecutive changing of outside world and ego-motion, \ie watching videos. 
+Practically, being able to do reconstruction for unlabeled videos can be widely applied to large amount of real applications like augmented reality, robotics \etc
 
-Therefore, letting computer manage dense 3D reconstruction ability by watching videos is the central problem of computer vision. 
-One group of approaches is geometric based method depend on feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}, \etc.  Since our world exists in 3D space and the images projection follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
+Therefore, letting computer manage dense 3D reconstruction ability by watching videos is a central problem of computer vision. 
+One group of approaches is geometric based method depend on feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}, \etc  Since our world exists in 3D space and the images generated follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
 However, theoretically, those methods does not explain why human can also do reconstruction from a single image by observing videos. In addition, they can easily fail once the feature matching is wrong, \eg when SIFT \cite{lowe2004distinctive}  feature meets a wall with white color. 
-In summary, geometric based methods do not have the ability to discover new reconstruction cues using videos, and ignore the information from monocular images.
+Thus, geometric based methods do not have the ability to discover new reconstruction cues from videos, and ignore the information inside monocular images.
 
 \begin{figure}
 \centering
@@ -21,8 +21,8 @@ Another way to do 3D reconstruction is learning based method, where the reconstr
 Nevertheless, collecting ground truth depth is almost impossible for most online videos, where the learned models are hard to generalize. 
 Thus, learning depth with unlabeled videos attracts lots of attention in recent years.
 Garg \etal \cite{godard2016unsupervised} try to use FCN to predict depth from a single image, by using photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
-Although those unsupervised learning based methods are able to do single image reconstruction, the results are still far from satisfactory. As shown at the left of \figref{fig:visual_comparison}, the depth results from \cite{zhou2017unsupervised} does not well represent the structure of scene, especially when visualized with computed normals. 
-This is mostly due to photometric matching is ambiguous, \ie a color in source frames can be matched to multiple similar colors in target frames. Although researchers usually use smoothness of depth \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighbor pixels, yielding non-satisfied normal results.
+Although those methods are able to do single image depth estimation, the results are still far from satisfactory. As shown at \figref{fig:visual_comparison}(d), the depth results from \cite{zhou2017unsupervised} does not well represent the structure of scene, especially when visualized with computed normals. 
+This is mostly due to photometric matching is ambiguous, \ie a color in source frames can be matched to multiple similar colors in target frames. Although researchers usually use smoothness of depth \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighboring pixels, yielding non-satisfied normal results.
 
 \begin{figure*}[t]
 \centering
@@ -31,11 +31,11 @@ This is mostly due to photometric matching is ambiguous, \ie a color in source f
 \label{fig:pipeline}
 \end{figure*}
 Our work falls in the scope of learning based 3D reconstruction with videos following the work of \cite{zhou2017unsupervised}, but is a step further towards learning a regularized 3D geometry with particular awareness of normal representation. 
-We are motivated by the fact that human beings are able to explicitly point out the normal direction of each pixel in an image. Actually, we are more sensitive to normal than depth, \eg one could precisely point out the normal direction of a pixel while could roughly know the exact depth. 
-Thus, we embed the normals representation inside the network as regularization layers, and enforce the prediction consistency with depth, which we will describe in \secref{sec:approach}.
-There are several advantages of inducing normal representation. First, it gives explicit understanding of normal for learned models.  Second, it provides higher order interaction between depth, which is beyond local neighbor relationships. Last, additional operations, \eg Manhattan assumption, over normals can be further integrated.
+We are motivated by the fact that human beings are able to explicitly point out the normal direction of each pixel in an image. Actually, we are more sensitive to normal than depth, \eg one could precisely point out the normal direction of a pixel while could only roughly know the exact depth. 
+Thus, we embed the normals representation inside the network as regularization layers, and enforce the prediction consistency with depth (\secref{sec:approach}).
+There are several advantages of having normal estimated. For instance, it gives explicit understanding of normal for learned models.  In addition, it provides higher order interaction between estimated depths, which is beyond local neighbor relationships. Last, additional operations, \eg Manhattan assumption, over normals could be further integrated.
 %Last but not the least, additional relationship, such as Manhattan world \cite{}, could be easily integrated with nor.
-As shown at right of \figref{fig:visual_comparison}, with the help of normal representation, our recovered geometry is comparably better. We did extensive experiments over the publish KITTI and NYUv2 dataset for 3D reconstruction, and show our algorithm can achieve relative 20$\%$ improvement over the state-of-the-art method on depth estimation and 10$\%$ improvement on predicted normals. More importantly, we converge much faster. These demonstrate the efficiency and effectiveness of our approach.
+As shown at \figref{fig:visual_comparison}(c), with the help of normal, our recovered geometry is comparably better. We did extensive experiments over the publish KITTI and NYUv2 dataset for 3D reconstruction, and show our algorithm can achieve relative 20$\%$ improvement over the state-of-the-art method on depth estimation and 10$\%$ improvement on predicted normals. More importantly, the training converges much faster. These demonstrate the efficiency and effectiveness of our approach.
 % recent work stereo, (eccv 2016, cvpr 2017), motion (cvpr 2017)
 % matching can be easy, keep local structure for regularize depth is important,  
 
@@ -45,11 +45,11 @@ As shown at right of \figref{fig:visual_comparison}, with the help of normal rep
 
 
 \subsection{Framework}
-\figref{fig:pipeline} illustrate an overview of our learning approach. For training, we apply supervision from view synthesis following \cite{zhou2017unsupervised}. Specifically, the depth network (middle) takes only the target view as input, and
-outputs a per-pixel depth map $\ve{D}_t$, based on which a normal map $\ve{N}_t$ is generated by the depth-to-normal layer. Then, given the $\ve{D}_t$ and $\ve{N}_t$, a new depth maps $\ve{D}_t^n$ are estimated from the normal-to-depth layer using local orthogonal compatibility between depth and normals. Both of the layers takes in image gradient to avoid non-compatible pixels involving in depth and normal conversion (detailed in \secref{sec:approach}).
-The new depth map, combined with poses and mask predicted from the pose network (left), are then used to inverse warp the source views to reconstruct the target view, where errors are back propagate through both networks. Here the normal representation naturally serves as a regularization for depth estimation. Finally, for training loss, additional to the usually used photometric reconstruction loss, we also use smoothness over normal, which induce higher order interaction between pixels (\secref{sub:training_losses})
+\figref{fig:pipeline} illustrate an overview of our approach. For training, we apply supervision from view synthesis following \cite{zhou2017unsupervised}. Specifically, the depth network (middle) takes only the target view as input, and
+outputs a per-pixel depth map $D_t$, based on which a normal map $N_t$ is generated by the depth-to-normal layer. Then, given the $D_t$ and $N_t$, a new depth map $D_t^n$ is estimated from the normal-to-depth layer using local orthogonal compatibility between depth and normals. Both of the layers takes in image gradient to avoid non-compatible pixels involving in depth and normal conversion (detailed in \secref{sec:approach}).
+Then, the new depth map $D_t^n$, combined with poses and mask predicted from the pose network (left), are then used to inversely warp the source views to reconstruct the target view, and errors are back propagated through both networks. Here the normal representation naturally serves as a regularization for depth estimation. Finally, for training loss, additional to the usually used photometric reconstruction loss, we also add in smoothness over normals, which induces higher order interaction between pixels (\secref{sub:training_losses})
 
-After the model is trained, given a new image,  we first infer per-pixel depth value and then compute the normal value, yielding consistent prediction between the two.
+After the model is trained, given a new image,  we first infer per-pixel depth value and then compute the normal value, yielding consistent prediction between the two predictions.
 % problem normal can be locally estimated , while depth need global.  Another brach purely for normal
 
 
