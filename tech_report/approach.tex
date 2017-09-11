@@ -21,20 +21,20 @@ where $\scr{N}(x_i)$ is a set of predefined neighborhood pixels of $x_i$, and $N
 
 However, as introduced in Sec. \ref{sec:related}, most supervised works try to predict the two information independently without considering their correlations, SURGE~\cite{peng2016depth} proposes to apply the consistency by a post CRF processing only over large planar regions. In our case, we enforce the consistency over the full image, and directly applied to network output, which better benefits the model learning. Specifically, to model their consistency, we developed two layers by solving \equref{eq:orthognal}, \ie depth to normal layer and normal to depth layer. 
 
-\textbf{Infer normal from depth.} 
+\textbf{Infer normals from depths.} 
 \label{chap:d2n}
 Given a depth map $D$, for each point $x_i$, in order to get $N(x_i)$ by solving \equref{eq:orthognal}, we need to firstly define $\hua{N}(x_i)$ and $\omega_{ji}$, and then solve the set of linear equations. To deal with the first issue, we choose using the 8-neighbor convention to compute normal directions, which considerably more robust than 4-neighbor convention. 
 However, it is not always good to equally weight all pixels due to depth discontinuity or dramatic normal changes may occur nearby. Thus, for computing $\omega_{ji}$, we set it large neighboring pixels $x_j$ having similar color with $x_i$, while smaller otherwise. Formally, $\omega_{ji} = \exp\{-\alpha|I(x_j) - I(x_i)|\}$ and $\alpha = 0.1$ in our case. 
 
 For minimizing \equref{eq:orthognal}, one may apply a standard singular value decomposition (SVD) to obtain the solution. However, in our case, we want to embed such an operation in the network training and back-propagate the gradient respect to input depth. SVD is computationally non-efficient for back-propagation. Thus, we choose to use mean cross-product to approximate the minimization~\cite{jia2006using}, which is simpler and more efficient. 
-Specifically, from the 8 neighbor pixels around $x_i = [m, n]$, we split them to 4 pairs, where each pair of pixels is perpendicular at 2D \wrt $x_i$, and in a counter clock-wise order, \ie $\hua{P}(x_i) = \{([m-1, n], [m, n+1]), \cdot, ([m+1, n-1], [m-1, n-1])\}$. 
+Specifically, from the 8 neighbor pixels around $x_i = [m, n]$, we split them to a set of 4 pairs, where each pair of pixels is perpendicular at 2D \wrt $x_i$, and in a counter clock-wise order, \ie $\hua{P}(x_i) = \{([m-1, n], [m, n+1]), \cdot, ([m+1, n-1], [m-1, n-1])\}$. 
 Then, for each pair, cross product of their difference vector \wrt $x_i$ is computed, and the mean of computed vector is assign to the normal direction of $x_i$. Formally, the solver for normal is written as, 
 \begin{align}
 \label{eq:cross}
 &\ve{n} = \sum_{p\in\hua{P}}(\omega_{p_{0}, x_i}(\phi(p_{0}) - \phi(x_i)) \times \omega_{p_{1}, x_i}(\phi(p_{1}) - \phi(x_i))), \nonumber \\
 &N(x_i) = \ve{n} / \|\ve{n}\|_2
 \end{align}
-The process of calculating normal direction is in Fig. \ref{fig:d2n}. 
+The process of calculating the normal direction using one pair of pixels is in Fig. \ref{fig:d2n}. 
 
 %for each $q\in\theta(p)$, $R_q$ satisfies $(q-p)\cdot(r-p) = 0, \quad r \in R_q$.
 % The normal direction of each point is computed based on the neighboring points after projecting to 3D space. The process of calculating normal direction of point $p$ is shown in Figure \ref{fig:d2n}. $\theta(p)$ is a set of neighboring (8) points of $p$. 
@@ -43,12 +43,14 @@ The process of calculating normal direction is in Fig. \ref{fig:d2n}.
 \begin{figure}
 \centering
 \includegraphics[width=0.5\textwidth]{figures/d2n.pdf}
-\caption{Depth-to-normal layer. $p, q, \theta(p), q_{\theta(p)}$ are 2D points, and $\hat{p}, \hat{q}, \hat{\theta}(p), \hat{q}_{\theta(p)}$ are corresponding points projected to 3D space.}
+\caption{Illustration of computing normal base on a pair of neighboring pixels. $x_i, x_{i1}, x_{i2}$ are 2D points, and 
+$\phi(x_i), \phi(x_{i1}), \phi(x_{i2})$ are corresponding points projected to 3D space. 
+The normal direction $N(x_i)$ is computed with cross product between $\phi(x_{i1}) - \phi(x_i)$ and $\phi(x_{i2}) - \phi(x_i)$.}
 \vspace{-0.7\baselineskip}
 \label{fig:d2n}
 \end{figure}
 
-\textbf{Expect depth from normal.} 
+\textbf{Expect depths from normals.} 
 Due to the fact that we do not have ground truth normal for supervision, it is necessary to recover depth from normal to receive the supervision from photometric error as discussed in Sec.~\ref{sec:preliminaries}.
 To recover depth, given normal map $N$, we still need to solve \equref{eq:orthognal}. However, there is no unique solution. Thus, for simplicity, we provide an initial depth map $D_o$ as input, which might lack normal smoothness, \eg depth map from network output. Then, given $D_o(x_i)$, the depth solution for neighboring pixel is unique and can be easily computed. Formally, let $D_e(x_j | x_i) = \psi(D_o(x_i), N(x_i))$ be the expected depth value calculated for a neighbor pixel $x_j$ \wrt $x_i$. 
 However, when computing over the full image, we still need to solve 8 equations jointly for each pixel from its 8 neighbors. Finally, by minimum square estimation, the solution for the expected depth value is,
