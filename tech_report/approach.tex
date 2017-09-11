@@ -3,38 +3,38 @@
 \label{sec:approach}
 \vspace{-0.3\baselineskip}
 
-In our scenario, given target image $I$, we aim to learn to estimate both depth and normal simultaneously. Formally, let $N$ be the predicted normal from our model, we embed it into the training pipeline and make it a stronger regularization for estimating depth $D$, which help to train more robust model.
+In our scenario, given an target image $I$, we aim at learning to estimate both depths and normals simultaneously. Formally, let $N$ be the predicted normals from our model, we embed it into the training pipeline and make it a regularization for estimating depths $D$, which helps to train a more robust model.
 
 \vspace{-0.5\baselineskip}
 \subsection{Depth and normal orthogonality.}
 \label{sub:depth_and_normal_orthogonality}
 \vspace{-0.3\baselineskip}
 
-In reconstruction, depth and normal are two strongly correlated information, which usually follow locally linear orthogonality correlation. Formally, for each pixel $x_i$, such a correlation can be written as a quadratic minimization for a set of linear equations, either given depth or normal,
+In reconstruction, depth and normal are two strongly correlated information, which follows locally linear orthogonality. Formally, for each pixel $x_i$, such a correlation can be written as a quadratic minimization for a set of linear equations,
 \begin{align}
 \label{eq:orthognal}
 &\scr{L}_{x_i}(D, N) = ||[\cdots,\omega_{ji}(\phi(x_j) - \phi(x_i)), \cdots]^T  N(x_i)||^2, \nonumber \\
 &~\text{where~} \phi(x) = D(x)\ve{K}^{-1}h(x), \text{~} \|N(x_i)\|_2 = 1, \nonumber\\
 &~\text{~~~~~~~~} \omega_{ji} > 0 \text{~~if~~} x_j \in \hua{N}(x_i)
 \end{align}
-where $\scr{N}(x_i)$ is a set of predefined neighborhood pixels of $x_i$, and $N(x_i)$ is a $3 \times 1$ vector. $\phi(x)$ is back projected 3D point from 2D coordinate $x$. $\phi(x_j) - \phi(x_i)$ is a difference vector in 3D, and $\omega_{ji}$ is used to weight the linear equation for pixel $x_j$ which we will elaborate later.
+where $\scr{N}(x_i)$ is a set of predefined neighborhood pixels of $x_i$, and $N(x_i)$ is a $3 \times 1$ vector. $\phi(x)$ is the back projected 3D point from 2D coordinate $x$. $\phi(x_j) - \phi(x_i)$ is a difference vector in 3D, and $\omega_{ji}$ is used to weight the equation for pixel $x_j$ \wrt $x_i$ which we will elaborate later.
 
-However, as introduced in Sec. \ref{sec:related}, most supervised works try to predict the two information independently without considering their correlations, SURGE~\cite{peng2016depth} proposes to apply the consistency by a post CRF processing only over large planar regions. In our case, we enforce the consistency over the full image, and directly applied to network output, which better benefits the model learning. Specifically, to model their consistency, we developed two layers by solving \equref{eq:orthognal}, \ie depth to normal layer and normal to depth layer. 
+As discussed in Sec. \ref{sec:related}, most previous works try to predict the two information independently without considering such a correlation, while only SURGE~\cite{peng2016depth} proposes to apply the consistency by a post CRF processing only over large planar regions. In our case, we enforce the consistency over the full image, and directly apply it to regularize the network to help the model learning. Specifically, to model their consistency, we developed two layers by solving \equref{eq:orthognal}, \ie a depth-to-normal layer and a normal-to-depth layer. 
 
 \textbf{Infer normals from depths.} 
 \label{chap:d2n}
-Given a depth map $D$, for each point $x_i$, in order to get $N(x_i)$ by solving \equref{eq:orthognal}, we need to firstly define $\hua{N}(x_i)$ and $\omega_{ji}$, and then solve the set of linear equations. To deal with the first issue, we choose using the 8-neighbor convention to compute normal directions, which considerably more robust than 4-neighbor convention. 
-However, it is not always good to equally weight all pixels due to depth discontinuity or dramatic normal changes may occur nearby. Thus, for computing $\omega_{ji}$, we set it large neighboring pixels $x_j$ having similar color with $x_i$, while smaller otherwise. Formally, $\omega_{ji} = \exp\{-\alpha|I(x_j) - I(x_i)|\}$ and $\alpha = 0.1$ in our case. 
+Given a depth map $D$, for each point $x_i$, in order to get $N(x_i)$. From \equref{eq:orthognal}, we need to firstly define neighbors $\hua{N}(x_i)$ and weights $\omega_{ji}$, and then solve the set of linear equations. To deal with the first issue, we choose to use the 8-neighbor convention to compute normal directions, which considerably more robust than the 4-neighbor convention. 
+However, it is not always good to equally weight all pixels due to depth discontinuity or dramatic normal changes may occur nearby. Thus, for computing $\omega_{ji}$, we weight more for neighboring pixels $x_j$ having similar color with $x_i$, while weight less otherwise. Formally, in our case, it is computed as $\omega_{ji} = \exp\{-\alpha|I(x_j) - I(x_i)|\}$ and $\alpha = 0.1$. 
 
-For minimizing \equref{eq:orthognal}, one may apply a standard singular value decomposition (SVD) to obtain the solution. However, in our case, we want to embed such an operation in the network training and back-propagate the gradient respect to input depth. SVD is computationally non-efficient for back-propagation. Thus, we choose to use mean cross-product to approximate the minimization~\cite{jia2006using}, which is simpler and more efficient. 
-Specifically, from the 8 neighbor pixels around $x_i = [m, n]$, we split them to a set of 4 pairs, where each pair of pixels is perpendicular at 2D \wrt $x_i$, and in a counter clock-wise order, \ie $\hua{P}(x_i) = \{([m-1, n], [m, n+1]), \cdot, ([m+1, n-1], [m-1, n-1])\}$. 
-Then, for each pair, cross product of their difference vector \wrt $x_i$ is computed, and the mean of computed vector is assign to the normal direction of $x_i$. Formally, the solver for normal is written as, 
+For minimizing \equref{eq:orthognal}, one may apply a standard singular value decomposition (SVD) to obtain the solution. However, in our case, we need to embed such an operation in the network for training, and back-propagate the gradient respect to input depths. SVD is computationally non-efficient for back-propagation. Thus, we choose to use mean cross-product to approximate the minimization~\cite{jia2006using}, which is simpler and more efficient. 
+Specifically, from the 8 neighbor pixels around $x_i = [m, n]$, we split them to 4 pairs, where each pair of pixels is perpendicular at 2D coordinate \wrt $x_i$, and in a counter clock-wise order, \ie $\hua{P}(x_i) = \{([m-1, n], [m, n+1]), \cdot, ([m+1, n-1], [m-1, n-1])\}$. 
+Then, for each pair, cross product of their difference vector \wrt $x_i$ is computed, and the mean direction of the computed vectors is set as the normal direction of $x_i$. Formally, the solver for normals is written as, 
 \begin{align}
 \label{eq:cross}
 &\ve{n} = \sum_{p\in\hua{P}}(\omega_{p_{0}, x_i}(\phi(p_{0}) - \phi(x_i)) \times \omega_{p_{1}, x_i}(\phi(p_{1}) - \phi(x_i))), \nonumber \\
 &N(x_i) = \ve{n} / \|\ve{n}\|_2
 \end{align}
-The process of calculating the normal direction using one pair of pixels is in Fig. \ref{fig:d2n}. 
+The process of calculating the normal direction for $x_i$ using one pair of pixels is in Fig. \ref{fig:d2n}. 
 
 %for each $q\in\theta(p)$, $R_q$ satisfies $(q-p)\cdot(r-p) = 0, \quad r \in R_q$.
 % The normal direction of each point is computed based on the neighboring points after projecting to 3D space. The process of calculating normal direction of point $p$ is shown in Figure \ref{fig:d2n}. $\theta(p)$ is a set of neighboring (8) points of $p$. 
@@ -50,10 +50,10 @@ The normal direction $N(x_i)$ is computed with cross product between $\phi(x_{i1
 \label{fig:d2n}
 \end{figure}
 
-\textbf{Expect depths from normals.} 
-Due to the fact that we do not have ground truth normal for supervision, it is necessary to recover depth from normal to receive the supervision from photometric error as discussed in Sec.~\ref{sec:preliminaries}.
-To recover depth, given normal map $N$, we still need to solve \equref{eq:orthognal}. However, there is no unique solution. Thus, for simplicity, we provide an initial depth map $D_o$ as input, which might lack normal smoothness, \eg depth map from network output. Then, given $D_o(x_i)$, the depth solution for neighboring pixel is unique and can be easily computed. Formally, let $D_e(x_j | x_i) = \psi(D_o(x_i), N(x_i))$ be the expected depth value calculated for a neighbor pixel $x_j$ \wrt $x_i$. 
-However, when computing over the full image, we still need to solve 8 equations jointly for each pixel from its 8 neighbors. Finally, by minimum square estimation, the solution for the expected depth value is,
+\textbf{Compute depths from normals.} 
+Due to the fact that we do not have ground truth normals for supervision, it is necessary to recover depths from normals to receive the supervision from the photometric error as discussed in Sec.~\ref{sec:preliminaries}.
+To recover depths, given normal map $N$, we still need to solve \equref{eq:orthognal}. However, there is no unique solution. Thus, to make it solvable, we provide an initial depth map $D_o$ as input, which might lack normal smoothness, \eg depth map from network output. Then, given $D_o(x_i)$, the depth solution for each neighboring pixel of $x_i$ is unique and can be easily computed. Formally, let $D_e(x_j | x_i) = \psi(D_o(x_i), N(x_i))$ be the solved depth value calculated for a neighbor pixel $x_j$ \wrt $x_i$. 
+However, when computing over the full image, we still need to solve 8 equations jointly for each pixel from its 8 neighbors. Finally, by minimum square estimation (MSE), the solution for depth of $x_i$ is,
 \begin{align}
 \label{eq:depth}
 D_n(x_j) = \sum_{i\in\hua{N}}\hat{\omega}_{ij}D_e(x_j | x_i), \text{~~}
@@ -70,20 +70,20 @@ D_n(x_j) = \sum_{i\in\hua{N}}\hat{\omega}_{ij}D_e(x_j | x_i), \text{~~}
 \label{sub:training_losses}
 \vspace{-0.3\baselineskip}
 
-In this section, we describe our training strategy. In order to supervise both the depth and normal representations, we can directly applied the loss in \equref{eqn:full} by replacing the output from network $D_o$ with the output after normal to depth layer $D_n$ to train the model. We show in our experiments (\secref{sec:experiments}, by doing this, we outperform the previous state-of-the-art by around 10$\%$ in depth estimation using the same network architecture.
+Given the consistency, in this section, we describe our training strategy. In order to supervise both the depth and normal predictions, we can directly applied the loss in \equref{eqn:full} by replacing the output from network $D_o$ with the output after our normal-to-depth layer $D_n$ to train the model. We show in our experiments (\secref{sec:experiments}, by doing this, we already outperform the previous state-of-the-art by around 10$\%$ in depth estimation using the same network architecture.
 
-Additionally, with normal representation, we additionally require smoothness over neighboring normal values, which provides high order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{L}_{s}$ in \equref{eqn:regular}, while we apply the first order gradient, \ie $\scr{L}_{s}(N, 1)$. 
+Additionally, with normal representation, we also require smoothness over neighboring normal values, which provides higher order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{L}_{s}$ in \equref{eqn:regular} for depth, while the first order gradient is applied, \ie $~\scr{L}_{s}(N, 1)$. 
 
-Last but not the least, matching corresponding pixels between frames is another central factor to find correct geometry. Additional to photometric error from matching pixel colors, matching image gradient is more robust to lighting variations, which was frequently applied in computing optical flow~\cite{li2017pyramidal}. 
+Last but not the least, matching corresponding pixels between frames is another central factor to find correct geometry. Additional to the photometric error from matching pixel colors, matching image gradient is more robust to lighting variations, which was frequently applied in computing optical flow~\cite{li2017pyramidal}. 
 In our case, we compute a gradient map of the target image and synthesized target images, and include the gradient matching error to our loss function. Formally, the loss is represented as,
 \begin{equation}
 \label{equ:gradient}
 \scr{L}_{g}(D_n, \hua{T}, \hua{M}) = \sum_{s=1}^{S}\sum_{x_t}\ve{M}_s(x_t)\|\nabla I_t(x_t) - \nabla \hat{I_s}(x_t)\|_1, \nonumber
 \end{equation}
-In our experimental section, we observe additional benefits by having this match, especially at indoor scenario, where colors are often homogeneous on walls.
+In our experimental section, we observe additional benefits from this matching functional, especially at indoor scenario, where colors are often homogeneous on walls.
 In the future, we hope to investigate more in matching criteria such as with stronger descriptors like SIFT~\cite{liu2011sift} or higher level convolutional features.
 
-In summary, our final learning loss for multi-scale learning is,
+In summary, our final learning objective for multi-scale learning is,
 \begin{align}
 \label{eq:full_loss}
 &\scr{L}(\hua{D}, \hua{N}, \hua{T}, \hua{M}) = \scr{L}_{o}(\{D_{nl}\}, \hua{T}, \hua{M}) + \nonumber\\
