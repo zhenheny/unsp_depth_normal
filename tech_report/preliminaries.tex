@@ -12,14 +12,14 @@ Let $D(x_t)$ be the depth value of the target view at image coordinate $x_t$, an
 \label{eqn:warp}
 D(x_s)h(x_s) = \ve{K}\ve{T}_{t\rightarrow s}D(x_t)\ve{K}^{-1}h(x_t),
 \end{align}
-and the image coordinate $x_s$ can be obtained by dehomogenisation of $d(x_s)h(x_s)$. Thus, $x_s$ and $x_t$ is a pair of matching coordinates, and we are able to compare the similarity between the two to valide the correctness of structure.
+and the image coordinate $x_s$ can be obtained by dehomogenisation of $D(x_s)h(x_s)$. Thus, $x_s$ and $x_t$ is a pair of matching coordinates, and we are able to compare the similarity between the two to validate the correctness of structure.
 
 
 \textbf{Photometric error from view synthesis.} 
 \label{chap:warping}
 %that the color of each pixel is necessarily be similar after perspective projection for a static rigid scene
-Given pixel matching pairs between target and source view, \ie $I_t$ and $I_s$, we can synthesis a target view $\hat{I_s}$ from the given source view through bilinear interpolation~\cite{GargBR16}, as illustrated in Fig. \ref{fig:3d_warping}(b). 
-Then, under the assumption of Lambertian and a static rigid scene, average photometric error is often used to recover the depth map $D$ for the target view and the relative pose. 
+Given pixel matching pairs between target and source views, \ie $I_t$ and $I_s$, we can synthesis a target view $\hat{I_s}$ from the given source view through bilinear interpolation~\cite{GargBR16}, as illustrated in Fig. \ref{fig:3d_warping}(b). 
+Then, under the assumption of Lambertian and a static rigid scene, the average photometric error is often used to recover the depth map $D$ for the target view and the relative pose. 
 However, as pointed out by \cite{zhou2017unsupervised}, this assumption is not always true, due to the fact of existing moving object and occlusion. Thus, an explainability mask $\ve{M}$ is induced to leverage the issue. Formally, the masked photometric error is,
 \begin{align}
 \label{eqn:photometric}
@@ -37,7 +37,7 @@ $\hua{M} = \{\ve{M}_s\}$ is a set of explainability masks, and $\ve{M}_s(x_t) \i
 % In which, $s$ iterates the number of source image, $p$ iterates each pixel in the image, $I_t$ is the target image, $I_s$ is the source image, $\hat{I_s} = \tau(I_s, D_t, Rt)$ is the warped image, $\tau$ is the warping function as introduced above.
 
 \textbf{Regularization.} 
-As mentioned in \secref{sec:intro}, supervision based solely photometric error is ambiguous. One pixel could match to multiple candidates, especially at low-texture regions. In addition, there is trivial solution for explainability mask by setting all values to zero. Thus, to reduce depth ambiguity and encourage non-zero of masks, two regularization terms are applied, 
+As mentioned in \secref{sec:intro}, supervision based solely on photometric error is ambiguous. One pixel could match to multiple candidates, especially at low-texture regions. In addition, there is trivial solution for explainability mask by setting all values to zero. Thus, to reduce depth ambiguity and encourage non-zero masks, two regularization terms are applied, 
 % One issue with using only view synthesis as supervision is that the back-propagation gradients are solely derived from the pixel value difference between one point in target image and weighted sum of its four neighboring points in source image. The warping loss will not be useful for learning where the point falls on low-texture regions. The predicted depth on these regions can be of any value as long as the warped region has the similar pixel value.  To overcome this issue, a prior knowledge of the scene geometry is incorporated for a smoothness loss:
 \begin{align}
 \label{eqn:regular}

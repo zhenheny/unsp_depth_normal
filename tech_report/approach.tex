@@ -3,7 +3,7 @@
 \label{sec:approach}
 \vspace{-0.3\baselineskip}
 
-In our scenario, given an target image $I$, we aim at learning to estimate both depths and normals simultaneously. Formally, let $N$ be the predicted normals from our model, we embed it into the training pipeline and make it a regularization for estimating depths $D$, which helps to train a more robust model.
+In our scenario, given a target image $I$, we aim at learning to estimate both depths and normals simultaneously. Formally, let $N$ be the predicted normals from our model, we embed it into the training pipeline and make it a regularization for estimating depths $D$, which helps to train a more robust model.
 
 \vspace{-0.5\baselineskip}
 \subsection{Depth and normal orthogonality.}
@@ -72,7 +72,7 @@ D_n(x_j) = \sum_{i\in\hua{N}}\hat{\omega}_{ij}D_e(x_j | x_i), \text{~~}
 
 Given the consistency, in this section, we describe our training strategy. In order to supervise both the depth and normal predictions, we can directly applied the loss in \equref{eqn:full} by replacing the output from network $D_o$ with the output after our normal-to-depth layer $D_n$ to train the model. We show in our experiments (\secref{sec:experiments}, by doing this, we already outperform the previous state-of-the-art by around 10$\%$ in depth estimation using the same network architecture.
 
-Additionally, with normal representation, we also require smoothness over neighboring normal values, which provides higher order interactive between pixels. Formally, the smoothness for normal haves the same form as $\scr{L}_{s}$ in \equref{eqn:regular} for depth, while the first order gradient is applied, \ie $~\scr{L}_{s}(N, 1)$. 
+Additionally, with normal representation, we also require smoothness over neighboring normal values, which provides higher order interactive between pixels. Formally, the smoothness for normal has the same form as $\scr{L}_{s}$ in \equref{eqn:regular} for depth, while the first order gradient is applied, \ie $~\scr{L}_{s}(N, 1)$. 
 
 Last but not the least, matching corresponding pixels between frames is another central factor to find correct geometry. Additional to the photometric error from matching pixel colors, matching image gradient is more robust to lighting variations, which was frequently applied in computing optical flow~\cite{li2017pyramidal}. 
 In our case, we compute a gradient map of the target image and synthesized target images, and include the gradient matching error to our loss function. Formally, the loss is represented as,

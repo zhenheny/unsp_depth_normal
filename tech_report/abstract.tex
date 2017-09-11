@@ -2,7 +2,7 @@
     Learning to reconstruct depths in a single image by watching unlabeled videos via deep convolutional network (DCN) is attracting significant attention in recent years, \eg \cite{zhou2017unsupervised}. 
     In this paper, we introduce normal representation for the unsupervised depth estimation framework, and our estimated depths are guaranteed to be compatible with predicted normals, yielding more robust geometry results. 
     Specifically, we formulate an edge-aware depth-normal consistency term, and solve it by constructing a depth-to-normal layer and a normal-to-depth layer inside of the DCN.
-    The depth-to-normal layer takes estimated depths as input, and computes normal directions using cross production based on neighboring pixels. Then given the estimated normals, the normal-to-depth layer outputs a regularized depth map through local planar smoothness. Both of the two layers are computed with awareness of edges inside the image.
+    The depth-to-normal layer takes estimated depths as input, and computes normal directions using cross production based on neighboring pixels. Then given the estimated normals, the normal-to-depth layer outputs a regularized depth map through local planar smoothness. Both layers are computed with awareness of edges inside the image.
     Finally, to train the network, we apply the photometric error and gradient smoothness for both depth and normal predictions.
-    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperforms the state-of-arts, which demonstrates the benefits from our approach.
+    We conducted experiments on both outdoor (KITTI) and indoor (NYUv2) videos, and show that our algorithm vastly outperforms state of the art, which demonstrates the benefits from our approach.
 \end{abstract}
