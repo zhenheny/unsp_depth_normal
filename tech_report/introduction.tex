@@ -21,12 +21,13 @@ Thus, geometric based methods do not have the ability to discover new reconstruc
 \label{fig:visual_comparison}
 \end{figure}
 
-Another way to do 3D reconstruction is learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{long2015fully}, supervised learning of depth, \eg \cite{eigen2014depth,ummenhofer2016demon}, achieved impressive results over public datasets like KITTI \cite{}, NYUv2 \cite{silberman2012indoor} and SUN3D \cite{xiao2013sun3d}. 
+Another way to do 3D reconstruction is learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{long2015fully}, supervised learning of depth, \eg \cite{eigen2014depth,ummenhofer2016demon}, achieved impressive results over public datasets like KITTI \cite{geiger2012we}, NYUv2 \cite{silberman2012indoor} and SUN3D \cite{xiao2013sun3d}. 
 Nevertheless, collecting ground truth depth is almost impossible for most online videos, where the learned models are hard to generalize. 
-Thus, learning depth with unlabeled videos attracts lots of attention in recent years.
-Garg \etal \cite{godard2016unsupervised} try to use FCN to predict depth from a single image, by using photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
-Although those methods are able to do single image depth estimation, the results are still far from satisfactory. As shown at \figref{fig:visual_comparison}(d), the depth results from \cite{zhou2017unsupervised} does not well represent the structure of scene, especially when visualized with computed normals. 
-This is mostly due to photometric matching is ambiguous, \ie a color in source frames can be matched to multiple similar colors in target frames. Although researchers usually use smoothness of depth \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighboring pixels, yielding non-satisfied normal results.
+Thus, learning depth with unlabeled videos attracts lots of attention currently. Most recently,
+\cite{zhou2017unsupervised} propose to learn a depth FCN for a single image from videos. The idea is for training, rather than using ground truth depth, they warp the target image to other consecutive video frames based on the predicted depths and relative motions, and match the photometry between the warped frames and observed frames (detailed in \secref{sec:preliminaries}). Then, the matching errors are back-propagated to the network, which supervise the prediction of depths. Similar idea was applied in depth prediction when stereo pairs is available~\cite{GargBR16,godard2016unsupervised}.
+%\cite{godard2016unsupervised} apply FCN to predict depth from a single image,  photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
+Although those methods are able to do single image depth estimation, the results are still far from satisfactory. As shown at \figref{fig:visual_comparison}(d), the depth results from \cite{zhou2017unsupervised} does not well represent the structure of given scene, especially when visualized with computed normals. 
+This is mostly due to photometric matching is ambiguous, \ie a color in source frames can be matched to multiple similar colors in target frames. Although researchers usually apply smoothness of depths \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighboring pixels, yielding non-satisfied normal results.
 
 \begin{figure*}[t]
 \centering
@@ -35,12 +36,13 @@ This is mostly due to photometric matching is ambiguous, \ie a color in source f
 \label{fig:pipeline}
 \vspace{-1.3\baselineskip}
 \end{figure*}
+
 Our work falls in the scope of learning based 3D reconstruction with videos following the work of \cite{zhou2017unsupervised}, but is a step further towards learning a regularized 3D geometry with particular awareness of normal representation. 
 We are motivated by the fact that human beings are able to explicitly point out the normal direction of each pixel in an image. Actually, we are more sensitive to normal than depth, \eg one could precisely point out the normal direction of a pixel while could only roughly know the exact depth. 
-Thus, we embed the normals representation inside the network as regularization layers, and enforce the prediction consistency with depth (\secref{sec:approach}).
+Thus, we induce normal representation in the pipeline and developed an edge-aware depth-normal consistency constrain inside the network which better regularizes the learning of depths (\secref{sec:approach}). 
 There are several advantages of having normal estimated. For instance, it gives explicit understanding of normal for learned models.  In addition, it provides higher order interaction between estimated depths, which is beyond local neighbor relationships. Last, additional operations, \eg Manhattan assumption, over normals could be further integrated.
 %Last but not the least, additional relationship, such as Manhattan world \cite{}, could be easily integrated with nor.
-As shown at \figref{fig:visual_comparison}(c), with the help of normal, our recovered geometry is comparably better. We did extensive experiments over the publish KITTI and NYUv2 dataset for 3D reconstruction, and show our algorithm can achieve relative 20$\%$ improvement over the state-of-the-art method on depth estimation and 10$\%$ improvement on predicted normals. More importantly, the training converges much faster. These demonstrate the efficiency and effectiveness of our approach.
+As shown at \figref{fig:visual_comparison}(c), with the help such a constrain, our recovered geometry is comparably better. We did extensive experiments over the publish KITTI and NYUv2 dataset, and show our algorithm can achieve relative 20$\%$ improvement over the state-of-the-art method on depth estimation and 10$\%$ improvement on predicted normals. More importantly, the training converges around 3$\times$ faster. These demonstrate the efficiency and effectiveness of our approach.
 % recent work stereo, (eccv 2016, cvpr 2017), motion (cvpr 2017)
 % matching can be easy, keep local structure for regularize depth is important,  
 
