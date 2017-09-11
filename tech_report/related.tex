@@ -1,15 +1,11 @@
-
-\vspace{-0.5\baselineskip}
 \section{Related Work}
 \label{sec:related}
-\vspace{-0.3\baselineskip}
-
-\textbf{Structure from motion and single view geometry.}
+\paragraph{Structure from feature matching and single view geometry.}
 As discussed in \secref{sec:intro}, geometry based methods, such as SFM~\cite{wu2011visualsfm}, ORB-SLAM~\cite{mur2015orb}, DTAM~\cite{NewcombeLD11}, are relying on feature matching, which could be effective and efficient in many cases. 
 However, they can fail at low texture, or drastic change of visual perspective \etc. More importantly, it can not extend to single view reconstruction where humans are good at.
 Traditionally, specific rules are developed for single view geometry. Methods are dependent on either computing vanishing point~\cite{HoiemEH07}, following rules of BRDF~\cite{prados2006shape}, or abstract the scenes with major plane and box representations~\cite{DBLP:conf/iccv/SchwingFPU13,DBLP:conf/3dim/SrajerSPP14} \etc. Those methods can only obtain sparse geometry representations, and some of them require certain assumptions (\textit{e.g.} Lambertian, Manhattan world).
 
-\textbf{Supervised single view geometry via CNN.}
+\paragraph{Supervised single view geometry via CNN.}
 With the advance of deep neural networks and their strong feature representation, dense geometry, i.e., pixel-wise depth and normal maps, can be readily estimated from a single image~\cite{wang2015designing,eigen2015predicting,laina2016deeper}. The learned CNN model show significant improvement comparing to other strategies based on hand-crafted features~\cite{karsch2014depth,ladicky2014pulling,zeisl2014discriminatively}. Others tried to improve the estimation further by appending a conditional random field (CRF)~\cite{DBLP:conf/cvpr/WangSLCPY15,Liu_2015_CVPR,li2015depth}. 
 However, most works regard depth and normal predictions as independent tasks. \cite{peng2016depth} point out their correlations over large planar regions, and regularize the prediction using a densely CRF~\cite{kong2015intrinsic}, which improved the results on both depth and normal. However, all those methods are requiring dense labeled ground truths, which are expensive to label in natural environments.
 
@@ -21,7 +17,7 @@ However, most works regard depth and normal predictions as independent tasks. \c
 
 % Wang \etal \cite{wang2015designing} also built upon the basic idea of \cite{eigen2014depth} and incorporate scene geometrical priors to help learning, in the related problem of normal estimation. Data-driven normal estimation has not been long since the first approach, that directly tries to estimate surface normals from the data was proposed by Fouhey \etal \cite{fouhey2013data}.  Both this work and \cite{zeisl2014discriminatively} proposed by Ladicky \etal used hand-crafted features like texton, SIFT, local quantized ternary patterns. Li \etal \cite{\cite{li2015depth}} first proposed to estimate depth and normal jointly and showed performance gain. 
 
-\textbf{Unsupervised single view geometry.}
+\paragraph{Unsupervised single view geometry.}
 Videos are easy to obtain at the present age, while hold much richer 3D information than single images. Thus, it attracts lots of interests if single view geometry can be learned through feature matching from videos. Recently, several deep learning methods have been proposed based on such an intuition. Deep3D \cite{xie2016deep3d} learns to generate right view from given left view by supervision of a stereo pair. In order to do back-propagation to depth values, it quantizes the depth space and trains to select the right one. 
 % Video holds a great potential towards semantically meaningful visual representations. Recently, there have been a small number of deep network based methods for depth estimation. 
 % DeepStereo \cite{flynn2016deepstereo} introduced a novel view synthesis network, while . This network generates new view images by selecting pixels from nearby images. The most appropriate depth values are selected to sample pixel values from neighboring images, based on plane sweep volume.
