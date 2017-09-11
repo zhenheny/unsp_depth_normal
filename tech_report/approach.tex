@@ -74,10 +74,10 @@ Additionally, with normal representation, we additionally require smoothness ove
 
 Last but not the least, matching corresponding pixels between frames is another central factor to find correct geometry. Additional to photometric error from matching pixel colors, matching image gradient is more robust to lighting variations, which was frequently applied in computing optical flow~\cite{li2017pyramidal}. 
 In our case, we compute a gradient map of the target image and synthesized target images, and include the gradient matching error to our loss function. Formally, the loss is represented as,
-\begin{equation}
+\begin{align}
 \label{equ:gradient}
 \scr{L}_{g}(D_n, \hua{T}, \hua{M}) = \sum_{s=1}^{S}\sum_{x_t}\ve{M}_s(x_t)\|\nabla I_t(x_t) - \nabla \hat{I_s}(x_t)\|_1, \nonumber
-\end{equation}
+\end{align}
 In our experimental section, we observe additional benefits by having this match, especially at indoor scenario, where colors are often homogeneous on walls.
 In the future, we hope to investigate more in matching criteria such as with stronger descriptors like SIFT~\cite{liu2011sift} or higher level convolutional features.
 
