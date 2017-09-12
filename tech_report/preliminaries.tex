@@ -1,9 +1,28 @@
-\vspace{-0.7\baselineskip}
+\vspace{-0\baselineskip}
 \section{Preliminaries}
 \label{sec:preliminaries}
-\vspace{-0.3\baselineskip}
+\vspace{-0\baselineskip}
+
+
+
+\begin{figure*}[!htp]
+\centering
+\includegraphics[width=\textwidth]{figures/pipeline_comp.pdf}
+\caption{Framework of our approach.}
+\label{fig:pipeline}
+\vspace{-.3\baselineskip}
+\end{figure*}
 
 In order to make the paper self-contained, we first introduce several preliminaries proposed in the unsupervised learning pipelines \cite{zhou2017unsupervised,godard2016unsupervised}. The core idea behind, as discussed in Sec. \ref{sec:related}, is inverse warping from target view to source view with awareness of 3D geometry, as illustrated in Fig. \ref{fig:3d_warping}(a), which we will elaborate in the following paragraphs.
+
+\begin{figure}[!htp]
+\centering
+\includegraphics[width=0.5\textwidth]{figures/3d_warping_comp.pdf}
+\caption{Illustraion of (a) 3D inverse warping and (b) bilinear interpolation.}
+\label{fig:3d_warping}
+\vspace{-1.1\baselineskip}
+\end{figure}
+
 
 
 \textbf{Perspective projection between multiple views.}
@@ -39,6 +58,8 @@ $\hua{M} = \{\ve{M}_s\}$ is a set of explainability masks, and $\ve{M}_s(x_t) \i
 \textbf{Regularization.} 
 As mentioned in \secref{sec:intro}, supervision based solely on photometric error is ambiguous. One pixel could match to multiple candidates, especially in low-texture regions. In addition, there is trivial solution for explainability mask by setting all values to zero. Thus, to reduce depth ambiguity and encourage non-zero masks, two regularization terms are applied, 
 % One issue with using only view synthesis as supervision is that the back-propagation gradients are solely derived from the pixel value difference between one point in target image and weighted sum of its four neighboring points in source image. The warping loss will not be useful for learning where the point falls on low-texture regions. The predicted depth on these regions can be of any value as long as the warped region has the similar pixel value.  To overcome this issue, a prior knowledge of the scene geometry is incorporated for a smoothness loss:
+
+
 \begin{align}
 \label{eqn:regular}
 \scr{L}_{s}(D, 2) &= \sum_{x_t}\sum_{d \in {x, y}}|\nabla^{2}_dD(x_t)|e^{-\alpha|\nabla_dI(x_t)|} & \nonumber \\
@@ -46,13 +67,6 @@ As mentioned in \secref{sec:intro}, supervision based solely on photometric erro
 \end{align}
 $\scr{L}_{s}(D, 2)$ is a spatial smoothness term penalizes L1 norm of second-order gradients of depth along both x and y directions, encouraging depth values to align in planar surface when no image gradient appears. Here, the number $2$ represents the 2nd order for depth. $\scr{L}_{m}(\hua{M})$ is cross-entropy between the masks and maps with value 1.
 
-\begin{figure}
-\centering
-\includegraphics[width=0.5\textwidth]{figures/3d_warping_comp.pdf}
-\caption{Illustraion of (a) 3D inverse warping and (b) bilinear interpolation.}
-\label{fig:3d_warping}
-\vspace{-1\baselineskip}
-\end{figure}
  % As depth discontinuity often happens at image gradients, the smoothness loss is weighted by the a function of image gradients to prevent smoothed depth at image gradients. 
 
 Finally, a multi-scale strategy is applied to the depth output, and the total loss for depth estimation from videos is a joint functional from previous terms,

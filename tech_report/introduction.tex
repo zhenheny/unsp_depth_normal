@@ -1,22 +1,24 @@
 
-\vspace{-1.0\baselineskip}
+\vspace{-0\baselineskip}
 \section{Introduction}
 \label{sec:intro}
-\vspace{-0.3\baselineskip}
+\vspace{-0\baselineskip}
 
 % depth normal is natural ability, without groud truth
 Human beings are highly competent in recovering the 3D geometry of observed natural scenes at a very detailed level in real-time, even from a single image. 
 % More impressively, we leanred to achieve this ability only through visual perception of consecutive changing of outside world and ego-motion, \ie watching videos. 
-More impressively, we learned to achieve this ability without annotated images or videos.
+%More impressively, we learned to achieve this ability without annotated images or videos.
 Being able to do reconstruction for monocular images can be widely applied to large amount of real applications such as augmented reality and robotics.
 
-Recovering 3D geometry from single image requires both semantic understanding of the scene and detailed distinguishing between the background and foreground, thus is a fundamental probelm in computer vision.
-%Therefore, providing computers dense 3D reconstruction ability by watching videos is a central problem of computer vision. 
-One group of approaches is geometric based method depending on feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}, \etc  Since our world exists in a 3D space and the images generated follows camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
-However, theoretically, those methods do not explain why humans can do reconstruction from a single image by observing videos. 
-In addition, they can easily fail once the feature matching is wrong, \eg when SIFT \cite{lowe2004distinctive}  feature meets a wall with plain white color or low textures. 
-Thus, geometric based methods do not have the ability to discover new reconstruction cues from training videos, and thus ignore the information inside monocular images.
+%In recent years, there has been an interest and progress in learning to make inferences by machine learning techniques. Significant progress has been made in learning CNNs that generate dense 3D reconstructions when 2D images with 3D ground truth are available [ *refs here]?  When direct 3D annotations are not available, we can infer 3D information from stereo images or video streams to train a network to make monocular 3D predictions. However, to use 3D from videos, we must also solve the problem of inference of 3D from videos. In earlier work, this problem was solved by feature matching and estimating camera and scene geometries [*refs*] but these techniques are sensitive to correct matching, are ineffective in homogeneous areas and typically yield sparse 3D maps. We can, instead, try to solve the problem of monocular 3D estimation and use of video by imposing consistency of the video frames with the 3D reconstruction. There has been work in this line, such as by [Zhou, others?]. The main idea is to warp the target image to other consecutive video frames
 
+% Recovering 3D geometry from single image requires both semantic understanding of the scene and detailed distinguishing between the background and foreground. It is a fundamental while challenging probelm in computer vision.
+%Therefore, providing computers dense 3D reconstruction ability by watching videos is a central problem of computer vision.
+One group of approaches solve this problem by feature matching and estimating camera and scene geometries, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}. But these techniques are sensitive to correct matching and are ineffective in homogeneous areas. 
+%One group of approaches that have been trying to solve this problem is geometry based and dependent on feature matching, \eg structure from motion (SFM) \cite{wu2011visualsfm} \etc, or color matching, \eg DTAM \cite{NewcombeLD11}.  Since our world exists in a 3D space and the images generated follow camera geometry, as long as the matching from corresponding frames are correct, we can exactly solve the 3D structure. 
+%However, theoretically, those methods do not explain why humans can do reconstruction from a single image by observing videos. 
+%However, these methods can easily fail once the feature matching is wrong, \eg when SIFT \cite{lowe2004distinctive}  feature meets a wall with plain white color. 
+%Thus, geometry based methods do not have the ability to discover new reconstruction cues from training videos, and thus ignore the information inside monocular images.
 \begin{figure}
 \centering
 \includegraphics[width=0.48\textwidth, height=0.18\textwidth]{figures/visual_comparison_comp-v2.pdf}
@@ -24,24 +26,24 @@ Thus, geometric based methods do not have the ability to discover new reconstruc
 \vspace{-1.0\baselineskip}
 \label{fig:visual_comparison}
 \end{figure}
+Another way to do 3D reconstruction is by a learning based method, where the reconstruction cues can be incrementally discovered by learning from videos. Currently, with the development of pixel-wise prediction such as fully convolutional network (FCN) \cite{long2015fully}, supervised learning of depth, \eg \cite{eigen2014depth}, achieved impressive results over public datasets like KITTI \cite{geiger2012we}, NYUv2 \cite{silberman2012indoor} and SUN3D \cite{xiao2013sun3d}. 
+Nevertheless, collecting ground truth depth is almost impossible for random videos.  It is hard for the supervisedly learned models to generalize on videos of different scenes.
 
-Another way to do 3D reconstruction is by a learning based method, where the reconstruction cues can be incrementally discovered and applied by keeping feeding in unobserved videos. Currently, with the development of pixel-wise prediction via deep learning such as fully convolutional network (FCN) \cite{long2015fully}, supervised learning of depth, \eg \cite{eigen2014depth}, achieved impressive results over public datasets like KITTI \cite{geiger2012we}, NYUv2 \cite{silberman2012indoor} and SUN3D \cite{xiao2013sun3d}. 
-Nevertheless, collecting ground truth depth is almost impossible for most online videos, where the learned models are hard to generalize. 
-Thus, learning depth on unlabeled videos attracts lots of attention. Most recently,
-\cite{zhou2017unsupervised} propose to learn a depth FCN for a single image from videos. The idea is for training, rather than using ground truth depth, they warp the target image to other consecutive video frames based on the predicted depths and relative motions, and match the photometry between the warped frames and observed frames (detailed in \secref{sec:preliminaries}). Then, the matching errors are back-propagated to the network, which supervise the prediction of depths. Similar idea was applied in depth prediction when stereo pairs is available~\cite{GargBR16,godard2016unsupervised}.
+We can, instead, try to solve this problem in an unsupervised way by imposing 3D scene geometric consistency between video frames. There has been works in this line, \cite{zhou2017unsupervised} propose a single image depth FCN learning from videos. In their training, rather than using ground truth depth, they warp the target image to other consecutive video frames based on the predicted depths and relative motions, and match the photometry between the warped frames and observed frames (detailed in \secref{sec:preliminaries}). Then, the matching errors are used as the supervision of the depth prediction. Similar idea was applied in depth prediction when stereo pairs are available~\cite{GargBR16,godard2016unsupervised}.
 
 
 %\cite{godard2016unsupervised} apply FCN to predict depth from a single image,  photometric matching from stereo pairs, and back-propagate the matching error to the network. Later works \cite{zhou2017unsupervised,Vijayanarasimhan17} extends to using information from consecutive video frames by introducing camera ego-motion. 
 %Although those methods are able to do single image depth estimation, the results are still far from satisfactory. As shown at \figref{fig:visual_comparison}(c), the depth results from \cite{zhou2017unsupervised} does not well represent the scene structure, especially when visualized with computed normals. 
 Altough those methods are able to do single image depth estimation, the results do not well represent the scene structure, especially when visulized with computed normals, as shown in \figref{fig:visual_comparison}(c).
-This is mostly due to that photometric matching is ambiguous, \ie a pixel in source frames can be matched to multiple similar pixels in target frames. Although researchers usually apply smoothness of depths \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighboring pixels, which potentially have similar colors, yielding inconsistent normal results.
+This is mostly due to that photometric matching is ambiguous, \ie a pixel in source frames can be matched to multiple similar pixels in target frames. Although researchers usually apply smoothness of depths \cite{zhou2017unsupervised} to reduce the ambiguity, it is often a weak constraint over neighboring pixels, which potentially have similar colors, thus yielding inconsistent normal results.
 
 
-Our work falls in the scope of learning based 3D reconstruction of a single image trained on monocular videos following the work of \cite{zhou2017unsupervised}, but is a step further towards learning a regularized 3D geometry with particular awareness of normal representation. 
-We are motivated by the fact that human beings are able to explicitly point out the normal direction of surface at each pixel in an image. And we are even more sensitive to normal than to depth, \eg one could precisely point out the normal direction of a pixel while could only roughly know the absolute depth. 
+Our work falls in the scope of learning based 3D reconstruction of a single image trained on monocular videos, following the work of \cite{zhou2017unsupervised}. But we have a step further towards learning a regularized 3D geometry with explicit awareness of normal representation.
+We are motivated by the fact that human beings are more sensitive in normal directions compared to depth estimation. For instance, one could precisely point out the normal direction of surface at each pixel of a single image while could only roughly know the absolute depth. 
 %Thus, we induce normal representation in the pipeline and develop an edge-aware depth-normal consistency constraint inside the network which better regularizes the learning of depths (\secref{sec:approach}). 
+
 Thus, we incorporate an edge-aware depth-normal consistency constraint inside the network which better regularizes the learning of depths (\secref{sec:approach}). 
-There are several advantages of having normal estimated. For instance, it gives explicit understanding of normal for learned models.  In addition, it provides higher order interaction between estimated depths, which is beyond local neighbor relationships. Last, additional operations, \eg Manhattan assumption, over normals could be further integrated. As depth/normal discontinuity often appear at object boundaries, the image edges are incoroporated into this constraint.
+There are several advantages of having normal estimated. For instance, it gives explicit understanding of normal for learned models.  In addition, it provides higher order interaction between estimated depths, which is beyond local neighbor relationships. Last, additional operations, \eg Manhattan assumption, over normals could be further integrated. As depth/normal discontinuity often appear at object edges in the image, we incoporate the image edges in this constraint to compensate.
 %Last but not the least, additional relationship, such as Manhattan world \cite{}, could be easily integrated with nor.
 As shown at \figref{fig:visual_comparison}(d), with such a constraint, our recovered geometry is comparably better. We did extensive experiments over the public KITTI and NYUv2 datasets, and show our algorithm can achieve relative 20$\%$ improvement over the state-of-the-art method on depth estimation and 10$\%$ improvement on predicted normals. More importantly, the training converges around 3$\times$ faster. These demonstrate the efficiency and effectiveness of our approach.
 % recent work stereo, (eccv 2016, cvpr 2017), motion (cvpr 2017)
