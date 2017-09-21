@@ -69,11 +69,12 @@ class SfMLearner(object):
                                     proj_pix2cam], batch_size=opt.batch_size)
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
+            print ("src_image_stack shape")
+            print (src_image_stack.get_shape().as_list())
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(tgt_image, 
-                                                      is_training=True)
+            pred_disp, depth_net_endpoints = disp_net(tgt_image)
             pred_depth = [1./d for d in pred_disp]
 
 
@@ -81,8 +82,7 @@ class SfMLearner(object):
             pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
                              src_image_stack, 
-                             do_exp=(opt.explain_reg_weight > 0),
-                             is_training=True)
+                             do_exp=(opt.explain_reg_weight > 0))
 
         with tf.name_scope("compute_loss"):
             pixel_loss = 0
@@ -97,6 +97,7 @@ class SfMLearner(object):
             exp_mask_stack_all = []
             pred_normals = []
             pred_disps2 = []
+            flyout_map_all = []
             depth_inverse = False
             for s in range(opt.num_scales):
                 if opt.explain_reg_weight > 0:
@@ -142,6 +143,7 @@ class SfMLearner(object):
                         # self.compute_edge_aware_smooth_loss(pred_disp[s]))
                         # self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
                         self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
+                        # self.compute_smooth_loss_multiscale(pred_disp2[:, :-2, 1:-1,]))
                         # self.compute_smooth_loss(pred_disp2))
                         # self.compute_smooth_loss_multiscale(pred_disp2))
                         # self.compute_edge_aware_smooth_loss(pred_disp2, curr_tgt_image))
@@ -170,7 +172,7 @@ class SfMLearner(object):
 
                     # Inverse warp the source image to the target image frame
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
-                    curr_proj_image = inverse_warp(
+                    curr_proj_image, curr_flyout_map= inverse_warp(
                         curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
                         pred_depth2, 
                         # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
@@ -183,28 +185,28 @@ class SfMLearner(object):
                     # curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
-                    curr_proj_image_grad_x = inverse_warp(
-                        curr_src_image_grad_x[:,:,:,3*i:3*(i+1)], 
-                        pred_depth2[:, :-2, 2:-1], 
-                        # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                        # pred_depth2, 
-                        # pred_depth[s], 
-                        pred_poses[:,i,:], 
-                        proj_cam2pix[:,s,:,:], 
-                        proj_pix2cam[:,s,:,:],
-                        curr_tgt_image)
-                    curr_proj_image_grad_y = inverse_warp(
-                        curr_src_image_grad_y[:,:,:,3*i:3*(i+1)], 
-                        pred_depth2[:, 1:-2, 1:-1], 
-                        # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                        # pred_depth2, 
-                        # pred_depth[s], 
-                        pred_poses[:,i,:], 
-                        proj_cam2pix[:,s,:,:], 
-                        proj_pix2cam[:,s,:,:],
-                        curr_tgt_image)
-                    curr_proj_error_grad_x, curr_proj_error_grad_y = tf.abs(curr_tgt_image_grad_x-curr_proj_image_grad_x), \
-                                                                    tf.abs(curr_tgt_image_grad_y-curr_proj_image_grad_y)
+                    # curr_proj_image_grad_x = inverse_warp(
+                    #     curr_src_image_grad_x[:,:,:,3*i:3*(i+1)], 
+                    #     pred_depth2[:, :-2, 2:-1], 
+                    #     # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
+                    #     # pred_depth2, 
+                    #     # pred_depth[s], 
+                    #     pred_poses[:,i,:], 
+                    #     proj_cam2pix[:,s,:,:], 
+                    #     proj_pix2cam[:,s,:,:],
+                    #     curr_tgt_image)
+                    # curr_proj_image_grad_y = inverse_warp(
+                    #     curr_src_image_grad_y[:,:,:,3*i:3*(i+1)], 
+                    #     pred_depth2[:, 1:-2, 1:-1], 
+                    #     # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
+                    #     # pred_depth2, 
+                    #     # pred_depth[s], 
+                    #     pred_poses[:,i,:], 
+                    #     proj_cam2pix[:,s,:,:], 
+                    #     proj_pix2cam[:,s,:,:],
+                    #     curr_tgt_image)
+                    # curr_proj_error_grad_x, curr_proj_error_grad_y = tf.abs(curr_tgt_image_grad_x-curr_proj_image_grad_x), \
+                    #                                                 tf.abs(curr_tgt_image_grad_y-curr_proj_image_grad_y)
 
 
                     ## compute smooth losses of both pred_depth and pred_depth2
@@ -258,9 +260,13 @@ class SfMLearner(object):
                     if i == 0:
                         proj_image_stack = curr_proj_image
                         proj_error_stack = curr_proj_error
+                        if curr_flyout_map != []:
+                            flyout_map = curr_flyout_map
                         if opt.explain_reg_weight > 0:
                             exp_mask_stack = tf.expand_dims(curr_exp[:,:,:,1], -1)
                     else:
+                        if curr_flyout_map != []:
+                            flyout_map = tf.concat([flyout_map, curr_flyout_map], axis=3)
                         proj_image_stack = tf.concat([proj_image_stack, 
                                                       curr_proj_image], axis=3)
                         proj_error_stack = tf.concat([proj_error_stack, 
@@ -273,6 +279,7 @@ class SfMLearner(object):
                 src_image_stack_all.append(curr_src_image_stack)
                 proj_image_stack_all.append(proj_image_stack)
                 proj_error_stack_all.append(proj_error_stack)
+                flyout_map_all.append(flyout_map)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
             total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss
@@ -308,6 +315,7 @@ class SfMLearner(object):
         self.proj_image_stack_all = proj_image_stack_all
         self.proj_error_stack_all = proj_error_stack_all
         self.exp_mask_stack_all = exp_mask_stack_all
+        self.flyout_map_all = flyout_map_all
 
     def get_reference_explain_mask(self, downscaling):
         opt = self.opt
@@ -344,7 +352,7 @@ class SfMLearner(object):
             D_dy = pred[:, scale:, :, :] - pred[:, :(-1 * scale), :, :]
             D_dx = pred[:, :, scale:, :] - pred[:, :, :(-1 * scale), :]
             return D_dx, D_dy
-        scales = [3]
+        scales = [2]
         loss = 0
         for scale in scales:
             dx, dy = gradient(pred_disp, scale)
@@ -440,27 +448,28 @@ class SfMLearner(object):
         tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s])
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
-        # for i in range(opt.num_source):
-        i = 0
-        if opt.explain_reg_weight > 0:
-            tf.summary.image(
-                'scale%d_exp_mask_%d' % (s, i), 
-                tf.expand_dims(self.exp_mask_stack_all[s][:,:,:,i], -1))
-        # tf.summary.image(
-        #     'scale%d_source_image_%d' % (s, i), 
-        #     self.deprocess_image(self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
-        tf.summary.image('scale%d_projected_image_%d' % (s, i), 
-            self.deprocess_image(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
-        tf.summary.image('scale%d_proj_error_%d' % (s, i),
-            tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
-        # tf.summary.image('scale%d_src_error_%d' % (s, i),
-        #     self.deprocess_image(tf.abs(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3] - self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3])))
-        tf.summary.histogram("tx", self.pred_poses[:,:,0])
-        tf.summary.histogram("ty", self.pred_poses[:,:,1])
-        tf.summary.histogram("tz", self.pred_poses[:,:,2])
-        tf.summary.histogram("rx", self.pred_poses[:,:,3])
-        tf.summary.histogram("ry", self.pred_poses[:,:,4])
-        tf.summary.histogram("rz", self.pred_poses[:,:,5])
+        for i in range(opt.num_source):
+
+            if opt.explain_reg_weight > 0:
+                tf.summary.image(
+                    'scale%d_exp_mask_%d' % (s, i), 
+                    tf.expand_dims(self.exp_mask_stack_all[s][:,:,:,i], -1))
+            # tf.summary.image(
+            #     'scale%d_source_image_%d' % (s, i), 
+            #     self.deprocess_image(self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
+            tf.summary.image('scale%d_projected_image_%d' % (s, i), 
+                self.deprocess_image(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
+            tf.summary.image('scale%d_proj_error_%d' % (s, i),
+                tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
+            tf.summary.image('scale%d_flyout_mask_%d' % (s,i), self.flyout_map_all[s][:,:,:,i*3:(i+1)*3])
+            # tf.summary.image('scale%d_src_error_%d' % (s, i),
+            #     self.deprocess_image(tf.abs(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3] - self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3])))
+            tf.summary.histogram("tx", self.pred_poses[:,:,0])
+            tf.summary.histogram("ty", self.pred_poses[:,:,1])
+            tf.summary.histogram("tz", self.pred_poses[:,:,2])
+            tf.summary.histogram("rx", self.pred_poses[:,:,3])
+            tf.summary.histogram("ry", self.pred_poses[:,:,4])
+            tf.summary.histogram("rz", self.pred_poses[:,:,5])
         # for var in tf.trainable_variables():
         #     tf.summary.histogram(var.op.name + "/values", var)
         # for grad, var in self.grads_and_vars:
