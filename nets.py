@@ -15,7 +15,7 @@ def resize_like(inputs, ref):
         return inputs
     return tf.image.resize_nearest_neighbor(inputs, [rH.value, rW.value])
 
-def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
+def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_edge=False, is_training=True):
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
     tgt_image = tf.image.resize_bilinear(tgt_image, [128, 416])
@@ -73,8 +73,35 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
                 mask2 = None
                 mask3 = None
                 mask4 = None
+
+            # Edge mask layers
+            if do_edge:
+                with tf.variable_scope('edge'):
+                    upcnv5_e = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5_e')
+
+                    upcnv4_e = slim.conv2d_transpose(upcnv5_e, 128, [3, 3], stride=2, scope='upcnv4_e')
+                    mask4_e = slim.conv2d(upcnv4_e, num_source * 2, [3, 3], stride=1, scope='mask4_e', 
+                        normalizer_fn=None, activation_fn=None)
+
+                    upcnv3_e = slim.conv2d_transpose(upcnv4_e, 64,  [3, 3], stride=2, scope='upcnv3_e')
+                    mask3_e = slim.conv2d(upcnv3_e, num_source * 2, [3, 3], stride=1, scope='mask3_e', 
+                        normalizer_fn=None, activation_fn=None)
+                    
+                    upcnv2_e = slim.conv2d_transpose(upcnv3_e, 32,  [5, 5], stride=2, scope='upcnv2_e')
+                    mask2_e = slim.conv2d(upcnv2_e, num_source * 2, [5, 5], stride=1, scope='mask2_e', 
+                        normalizer_fn=None, activation_fn=None)
+
+                    upcnv1_e = slim.conv2d_transpose(upcnv2_e, 16,  [7, 7], stride=2, scope='upcnv1_e')
+                    mask1_e = slim.conv2d(upcnv1_e, num_source * 2, [7, 7], stride=1, scope='mask1_e', 
+                        normalizer_fn=None, activation_fn=None)
+            else:
+                mask1_e = None
+                mask2_e = None
+                mask3_e = None
+                mask4_e = None
+
             end_points = utils.convert_collection_to_dict(end_points_collection)
-            return pose_final, [mask1, mask2, mask3, mask4], end_points
+            return pose_final, [mask1, mask2, mask3, mask4], [mask1_e, mask2_e, mask3_e, mask4_e], end_points
 
 def disp_net(tgt_image, is_training=True):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}

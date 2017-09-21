@@ -428,22 +428,16 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
         py = tf.slice(coords, [0, 0, 0, 1], [-1, -1, -1, 1])
         # determine which part "fly out" of the boundary of the target image
         flyout_mask = tf.cast((px<0) | (px>img_width) | (py<0) | (py>img_height), tf.float32)
-        print("shape of flyout_mask:")
-        print(flyout_mask.get_shape().as_list())
         flyout_mask = tf.tile(flyout_mask,[1,1,1,3])
-        print("shape of target image:")
-        print(target_image.get_shape().as_list())
         # scale to normalized coordinates [-1, 1] to match the input to 'interpolate'
         px = tf.clip_by_value(px/img_width*2.0 - 1.0, -1.0, 1.0)
         py = tf.clip_by_value(py/img_height*2.0 - 1.0, -1.0, 1.0)
         out_img = _interpolate(img, px, py, 'spatial_transformer')
         out_size = tf.shape(target_image)[1:3]
-        print("shape of out image:")
-        print(out_img.get_shape().as_list())
         # out_img = _interpolate_ms(img, px, py, out_size, target_image, 'spatial_transformer')
 
         # the flyout part in out_image should be replaced with the same part in target image
-        out_img = target_image*flyout_mask + out_img*(1.0-flyout_mask)
+        out_img_flyout = target_image*flyout_mask + out_img*(1.0-flyout_mask)
         return out_img, flyout_mask
 
     dims = tf.shape(img)
@@ -469,9 +463,9 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     src_pixel_coords = tf.reshape(src_pixel_coords, 
                                 [batch_size, 2, img_height, img_width])
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
-    projected_img = _spatial_transformer(img, src_pixel_coords, target_image)
+    projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
     
-    return projected_img
+    return projected_img, flyout_mask
 
 
 
