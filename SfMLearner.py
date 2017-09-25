@@ -141,8 +141,8 @@ class SfMLearner(object):
 
                     smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_disp[s]))
-                        # self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
-                        self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
+                        self.compute_smooth_loss(pred_disp2[:, 2:-2, 2:-2,]))
+                        # self.compute_smooth_loss(pred_disp2[:, :-2, 1:-1,]))
                         # self.compute_smooth_loss_multiscale(pred_disp2[:, :-2, 1:-1,]))
                         # self.compute_smooth_loss(pred_disp2))
                         # self.compute_smooth_loss_multiscale(pred_disp2))
