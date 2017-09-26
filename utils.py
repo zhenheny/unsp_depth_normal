@@ -1,6 +1,7 @@
 from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 
 def gray2rgb(im, cmap='gray'):
     cmap = plt.get_cmap(cmap)
@@ -22,6 +23,77 @@ def normalize_depth_for_display(depth, pc=95, crop_percent=0, normalizer=None, c
     depth = depth
     return depth
 
+def pose_vec2mat(vec):
+    """Converts 6DoF parameters to transformation matrix
+    Args:
+        vec: 6DoF parameters in the order of tx, ty, tz, rx, ry, rz -- [B, 6]
+    Returns:
+        A transformation matrix -- [B, 4, 4]
+    """
+    translation = tf.slice(vec, [0, 0], [-1, 3])
+    translation = tf.expand_dims(translation, -1)
+    rx = tf.slice(vec, [0, 3], [-1, 1])
+    ry = tf.slice(vec, [0, 4], [-1, 1])
+    rz = tf.slice(vec, [0, 5], [-1, 1])
+    rot_mat = euler2mat(rz, ry, rx)
+    rot_mat = tf.squeeze(rot_mat, squeeze_dims=[1])
+    filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])
+    filler = tf.tile(filler, [vec.get_shape().as_list()[0], 1, 1])
+    transform_mat = tf.concat([rot_mat, translation], axis=2)
+    transform_mat = tf.concat([transform_mat, filler], axis=1)
+    return transform_mat
+
+def euler2mat(z, y, x):
+    """Converts euler angles to rotation matrix
+     TODO: remove the dimension for 'N' (deprecated for converting all source
+           poses altogether)
+     Reference: https://github.com/pulkitag/pycaffe-utils/blob/master/rot_utils.py#L174
+
+    Args:
+        z: rotation angle along z axis (in radians) -- size = [B, N]
+        y: rotation angle along y axis (in radians) -- size = [B, N]
+        x: rotation angle along x axis (in radians) -- size = [B, N]
+    Returns:
+        Rotation matrix corresponding to the euler angles -- size = [B, N, 3, 3]
+    """
+    B = tf.shape(z)[0]
+    N = 1
+    z = tf.clip_by_value(z, -np.pi, np.pi)
+    y = tf.clip_by_value(y, -np.pi, np.pi)
+    x = tf.clip_by_value(x, -np.pi, np.pi)
+
+    # Expand to B x N x 1 x 1
+    z = tf.expand_dims(tf.expand_dims(z, -1), -1)
+    y = tf.expand_dims(tf.expand_dims(y, -1), -1)
+    x = tf.expand_dims(tf.expand_dims(x, -1), -1)
+
+    zeros = tf.zeros([B, N, 1, 1])
+    ones  = tf.ones([B, N, 1, 1])
+
+    cosz = tf.cos(z)
+    sinz = tf.sin(z)
+    rotz_1 = tf.concat([cosz, -sinz, zeros], axis=3)
+    rotz_2 = tf.concat([sinz,  cosz, zeros], axis=3)
+    rotz_3 = tf.concat([zeros, zeros, ones], axis=3)
+    zmat = tf.concat([rotz_1, rotz_2, rotz_3], axis=2)
+
+    cosy = tf.cos(y)
+    siny = tf.sin(y)
+    roty_1 = tf.concat([cosy, zeros, siny], axis=3)
+    roty_2 = tf.concat([zeros, ones, zeros], axis=3)
+    roty_3 = tf.concat([-siny,zeros, cosy], axis=3)
+    ymat = tf.concat([roty_1, roty_2, roty_3], axis=2)
+
+    cosx = tf.cos(x)
+    sinx = tf.sin(x)
+    rotx_1 = tf.concat([ones, zeros, zeros], axis=3)
+    rotx_2 = tf.concat([zeros, cosx, -sinx], axis=3)
+    rotx_3 = tf.concat([zeros, sinx, cosx], axis=3)
+    xmat = tf.concat([rotx_1, rotx_2, rotx_3], axis=2)
+
+    rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
+    return rotMat
+
 def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     """Inverse warp a source image to the target image plane
        Part of the code modified from  
@@ -35,7 +107,6 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     Returns:
         Source image warped to the target image plane
     """
-    import tensorflow as tf
     def _pixel2cam(depth, pixel_coords, intrinsics_inv):
         """Transform coordinates in the pixel frame to the camera frame"""
         cam_coords = tf.matmul(intrinsics_inv, pixel_coords) * depth
@@ -424,22 +495,23 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
           """
         img_height = tf.cast(tf.shape(img)[1], tf.float32)
         img_width = tf.cast(tf.shape(img)[2], tf.float32)
+        img_channels = img.get_shape().as_list()[3]
         px = tf.slice(coords, [0, 0, 0, 0], [-1, -1, -1, 1])
         py = tf.slice(coords, [0, 0, 0, 1], [-1, -1, -1, 1])
         # determine which part "fly out" of the boundary of the target image
         flyout_mask = tf.cast((px<0) | (px>img_width) | (py<0) | (py>img_height), tf.float32)
-        print("shape of flyout_mask:")
-        print(flyout_mask.get_shape().as_list())
-        flyout_mask = tf.tile(flyout_mask,[1,1,1,3])
-        print("shape of target image:")
-        print(target_image.get_shape().as_list())
+        # print("shape of flyout_mask:")
+        # print(flyout_mask.get_shape().as_list())
+        flyout_mask = tf.tile(flyout_mask,[1,1,1,img_channels])
+        # print("shape of target image:")
+        # print(target_image.get_shape().as_list())
         # scale to normalized coordinates [-1, 1] to match the input to 'interpolate'
         px = tf.clip_by_value(px/img_width*2.0 - 1.0, -1.0, 1.0)
         py = tf.clip_by_value(py/img_height*2.0 - 1.0, -1.0, 1.0)
         out_img = _interpolate(img, px, py, 'spatial_transformer')
         out_size = tf.shape(target_image)[1:3]
-        print("shape of out image:")
-        print(out_img.get_shape().as_list())
+        # print("shape of out image:")
+        # print(out_img.get_shape().as_list())
         # out_img = _interpolate_ms(img, px, py, out_size, target_image, 'spatial_transformer')
 
         # the flyout part in out_image should be replaced with the same part in target image
@@ -469,9 +541,9 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     src_pixel_coords = tf.reshape(src_pixel_coords, 
                                 [batch_size, 2, img_height, img_width])
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
-    projected_img = _spatial_transformer(img, src_pixel_coords, target_image)
+    projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
     
-    return projected_img
+    return projected_img, flyout_mask
 
 
 

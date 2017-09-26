@@ -74,10 +74,28 @@ class SfMLearner(object):
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(tgt_image)
+            source_image_batch = tf.concat([tf.slice(src_image_stack, 
+                                    [0, 0, 0, i*3], 
+                                    [-1, -1, -1, 3]) 
+                                    for i in range(opt.num_source)], axis=0)
+            ts_image_batch = tf.concat([tgt_image, source_image_batch], axis=0)
+            print("shape of ts_image_batch:")
+            print(ts_image_batch.get_shape().as_list())
+            ts_pred_disps, depth_net_endpoints = disp_net(ts_image_batch)
+            print("shape of ts_pred_disps:")
+            print(ts_pred_disps[0].get_shape().as_list())
+            pred_disp = [tf.slice(d,[0,0,0,0],[opt.batch_size,-1,-1,-1]) for d in ts_pred_disps]
+            # pred_disp, depth_net_endpoints = disp_net(tgt_image)
             pred_depth = [1./d for d in pred_disp]
+            s_pred_disps = [tf.slice(d, [opt.batch_size,0,0,0],[-1,-1,-1,-1])
+                            for d in ts_pred_disps]
+            s_pred_depths = [1./d for d in s_pred_disps]
+            # for i in range(opt.num_source):
+            #     print (src_image_stack[:,:,:,3*i:3*(i+1)].get_shape().as_list())
+            #     s_pred_disp = disp_net(src_image_stack[:,:,:,3*i:3*(i+1)])[0]
+            #     s_pred_depths.append([1./d for d in s_pred_disp])
 
-
+        ## pose and explainability network 
         with tf.name_scope("pose_and_explainability_prediction"):
             pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
@@ -90,6 +108,7 @@ class SfMLearner(object):
             smooth_loss = 0
             normal_smooth_loss = 0
             img_grad_loss = 0
+            st_consistency_loss = 0
             tgt_image_all = []
             src_image_stack_all = []
             proj_image_stack_all = []
@@ -185,6 +204,36 @@ class SfMLearner(object):
                     # curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
+                    ## inverse warp each depth estimation of source images to target image view
+                    if opt.st_consistency_weight > 0:
+                        pose_mat = pose_vec2mat(pred_poses[:,i,:])
+                        pose_mat_inv = tf.matrix_inverse(pose_mat) 
+                        s2t_depth, _ = inverse_warp(
+                            s_pred_depths[s][i*opt.batch_size:(i+1)*opt.batch_size,:,:,:],
+                            pred_depth2,
+                            pose_mat,
+                            proj_cam2pix[:,s,:,:],
+                            proj_pix2cam[:,s,:,:],
+                            pred_depth2)
+                        print("shape of s2t_depth:")
+                        print(s2t_depth.shape)
+                        print(s_pred_depths[s][i*opt.batch_size:(i+1)*opt.batch_size,:,:,:].shape)
+                        print(pred_depth2.shape)
+
+                        t2s_depth, _ = inverse_warp(
+                            pred_depth2,
+                            s_pred_depths[s][i*opt.batch_size:(i+1)*opt.batch_size,:,:,:],
+                            pose_mat_inv,
+                            proj_cam2pix[:,s,:,:],
+                            proj_pix2cam[:,s,:,:],
+                            s_pred_depths[s][i*opt.batch_size:(i+1)*opt.batch_size,:,:,:])
+
+                        print("shape of t2s_depth:")
+                        print(t2s_depth.shape)
+
+                        st_consistency_loss += opt.st_consistency_weight*(tf.reduce_mean(tf.abs(s2t_depth-pred_depth2) + \
+                                                tf.abs(t2s_depth-s_pred_depths[s][i*opt.batch_size:(i+1)*opt.batch_size,:,:,:])))
+
                     # curr_proj_image_grad_x = inverse_warp(
                     #     curr_src_image_grad_x[:,:,:,3*i:3*(i+1)], 
                     #     pred_depth2[:, :-2, 2:-1], 
@@ -257,6 +306,8 @@ class SfMLearner(object):
                     #         pixel_loss += tf.reduce_mean(curr_proj_error)
 
                     # Prepare images for tensorboard summaries
+                    if s == 0:
+                        s2t_depth_img = s2t_depth
                     if i == 0:
                         proj_image_stack = curr_proj_image
                         proj_error_stack = curr_proj_error
@@ -282,7 +333,7 @@ class SfMLearner(object):
                 flyout_map_all.append(flyout_map)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
-            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss
+            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss + st_consistency_loss/64.0
         
 
         with tf.name_scope("train_op"):
@@ -303,6 +354,7 @@ class SfMLearner(object):
         self.pred_disp = pred_disp
         self.pred_normals = pred_normals
         self.pred_disps2 = pred_disps2
+        self.s2t_depth_img = s2t_depth_img
         self.pred_poses = pred_poses
         self.opt.steps_per_epoch = \
             int(len(file_list['image_file_list'])//opt.batch_size)
@@ -310,6 +362,7 @@ class SfMLearner(object):
         self.pixel_loss = pixel_loss
         self.exp_loss = exp_loss
         self.smooth_loss = smooth_loss
+        self.st_consistency_loss = st_consistency_loss
         self.tgt_image_all = tgt_image_all
         self.src_image_stack_all = src_image_stack_all
         self.proj_image_stack_all = proj_image_stack_all
@@ -439,8 +492,11 @@ class SfMLearner(object):
         tf.summary.scalar("pixel_loss", self.pixel_loss)
         tf.summary.scalar("smooth_loss", self.smooth_loss)
         tf.summary.scalar("exp_loss", self.exp_loss)
+        if opt.st_consistency_weight > 0:
+            tf.summary.scalar("st_loss", self.st_consistency_loss)
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
         tf.summary.image("pred_disp2", self.pred_disps2[0])
+        tf.summary.image("s2t_depth_image", self.s2t_depth_img)
         # for s in range(opt.num_scales):
         s = 0
         tf.summary.histogram("scale%d_depth" % s, self.pred_depth[s])
@@ -482,7 +538,7 @@ class SfMLearner(object):
         self.opt = opt
         with open("../eval/"+opt.eval_txt, "w") as f:
             f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format('abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
-        with tf.variable_scope("training"):
+        with tf.variable_scope("training", reuse=None):
             self.build_train_graph()
         with tf.variable_scope("training", reuse=True):
             self.setup_inference(opt.img_height, opt.img_width, "depth")
