@@ -354,6 +354,7 @@ class SfMLearner(object):
         self.pred_disp = pred_disp
         self.pred_normals = pred_normals
         self.pred_disps2 = pred_disps2
+        self.pred_depth2 = pred_depth2
         self.s2t_depth_img = s2t_depth_img
         self.pred_poses = pred_poses
         self.opt.steps_per_epoch = \
@@ -496,7 +497,7 @@ class SfMLearner(object):
             tf.summary.scalar("st_loss", self.st_consistency_loss)
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
         tf.summary.image("pred_disp2", self.pred_disps2[0])
-        tf.summary.image("s2t_depth_image", self.s2t_depth_img)
+        tf.summary.image("s2t_disp_image", 1.0/self.s2t_depth_img)
         # for s in range(opt.num_scales):
         s = 0
         tf.summary.histogram("scale%d_depth" % s, self.pred_depth[s])
@@ -582,7 +583,8 @@ class SfMLearner(object):
                     fetches['pred_depth'] = self.pred_depth
                     fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
-                    # fetches['pred_depth2'] = self.pred_depth2
+                    fetches['s2t_depth_img'] = self.s2t_depth_img
+                    fetches['pred_depth2'] = self.pred_depth2
                     fetches['pred_poses'] = self.pred_poses
                     fetches["summary"] = sv.summary_op
 
