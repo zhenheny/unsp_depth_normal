@@ -103,10 +103,9 @@ class SfMLearner(object):
             edge_mask_all = []
             depth_inverse = False
             for s in range(opt.num_scales):
-                if opt.explain_reg_weight > 0:
-                    # Construct a reference explainability mask (i.e. all 
-                    # pixels are explainable)
-                    ref_exp_mask = self.get_reference_explain_mask(s)
+                # Construct a reference explainability mask (i.e. all 
+                # pixels are explainable)
+                ref_exp_mask = self.get_reference_explain_mask(s)
                 # Scale the source and target images for computing loss at the 
                 # according scale.
                 curr_tgt_image = tf.image.resize_bilinear(tgt_image, 
@@ -189,7 +188,8 @@ class SfMLearner(object):
                     ## compute smoothness loss considering the predicted edges
                     if opt.smooth_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp2[:,:,:,0], curr_edge[:,:,:,1]))
+                            self.compute_smooth_loss_wedge(pred_disp2[:,:,:,0], curr_edge[:,:,:,0]))
+                            # self.compute_smooth_loss(pred_disp2))
 
                     # Inverse warp the source image to the target image frame
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
@@ -286,7 +286,7 @@ class SfMLearner(object):
                         if opt.explain_reg_weight > 0:
                             exp_mask_stack = tf.expand_dims(curr_exp[:,:,:,1], -1)
                         if opt.edge_mask_weight > 0:
-                            edge_mask = tf.expand_dims(curr_edge[:,:,:,0], -1)
+                            edge_mask = tf.expand_dims(curr_edge[:,:,:,1], -1)
                     else:
                         proj_image_stack = tf.concat([proj_image_stack, 
                                                       curr_proj_image], axis=3)
@@ -295,7 +295,7 @@ class SfMLearner(object):
                         if curr_flyout_map != []:
                             flyout_map = tf.concat([flyout_map, curr_flyout_map], axis=3)
                         if opt.edge_mask_weight > 0:
-                            edge_mask = tf.concat([edge_mask, tf.expand_dims(curr_edge[:,:,:,0], -1)], axis=3)
+                            edge_mask = tf.concat([edge_mask, tf.expand_dims(curr_edge[:,:,:,1], -1)], axis=3)
                         if opt.explain_reg_weight > 0:
                             exp_mask_stack = tf.concat([exp_mask_stack, 
                                 tf.expand_dims(curr_exp[:,:,:,1], -1)], axis=3)
@@ -449,7 +449,7 @@ class SfMLearner(object):
         return smoothness_loss_2nd
 
     def compute_smooth_loss_wedge(self, disp, edge):
-        ## in edge, 0 represents edge, disp and edge are rank 3 vars
+        ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
         def gradient(pred):
             D_dy = pred[:, 1:, :,] - pred[:, :-1, :,]
@@ -461,12 +461,12 @@ class SfMLearner(object):
         dydx, dy2 = gradient(disp_grad_y)
 
         alpha = 10
-        edge_grad_x, edge_grad_y = gradient(edge)
-        weight_x = tf.exp(-1*alpha*tf.abs(edge_grad_x))
-        weight_y = tf.exp(-1*alpha*tf.abs(edge_grad_y))
+        # edge_grad_x, edge_grad_y = gradient(edge)
+        weight_x = tf.exp(-1*alpha*tf.abs(edge))
+        weight_y = tf.exp(-1*alpha*tf.abs(edge))
 
-        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:])) + \
-                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:,:]))
+        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1])) + \
+                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:]))
 
         return smoothness_loss
 
@@ -545,7 +545,10 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        self.saver = tf.train.Saver([var for var in tf.global_variables()] + \
+        load_saver_vars = [var for var in tf.model_variables() if "/edge/" not in var.name]
+        # print(saver_vars)
+        self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
+        self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
                                     max_to_keep=40)
         sv = tf.train.Supervisor(logdir=opt.checkpoint_dir, 
@@ -564,8 +567,9 @@ class SfMLearner(object):
                     checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
                     checkpoint = opt.checkpoint_dir + "/model.latest"
                 else:
-                    checkpoint = opt.checkpoint_continue 
-                self.saver.restore(sess, checkpoint)
+                    checkpoint = opt.checkpoint_continue
+                self.load_saver.restore(sess, checkpoint)
+                # self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
                 start_time = time.time()
                 fetches = {
@@ -578,6 +582,8 @@ class SfMLearner(object):
                     fetches["loss"] = self.total_loss
                     if self.smooth_loss != 0:
                         fetches["smooth_loss"] = self.smooth_loss
+                    if self.edge_loss != 0:
+                        fetches["edge_loss"] = self.edge_loss
                     fetches['pred_depth'] = self.pred_depth
                     fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
@@ -596,7 +602,7 @@ class SfMLearner(object):
                             % (train_epoch, train_step, opt.steps_per_epoch, \
                                 time.time() - start_time, results["loss"]))
                     if "smooth_loss" in results:
-                        print(results['smooth_loss'])
+                        print(results['edge_loss'])
                     if np.any(np.isnan(results['pred_depth'][-1])):
                         # np.save("./depth.npy", results['pred_depth'][-1])
                         print (results['pred_depth'][-1])
