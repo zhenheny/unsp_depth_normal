@@ -15,7 +15,7 @@ def resize_like(inputs, ref):
         return inputs
     return tf.image.resize_nearest_neighbor(inputs, [rH.value, rW.value])
 
-def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_edge=False, is_training=True):
+def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
     tgt_image = tf.image.resize_bilinear(tgt_image, [128, 416])
@@ -68,42 +68,11 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_edge=False, is_trai
                     upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
                     mask1 = slim.conv2d(upcnv1, num_source * 2, [7, 7], stride=1, scope='mask1', 
                         normalizer_fn=None, activation_fn=None)
-            else:
-                mask1 = None
-                mask2 = None
-                mask3 = None
-                mask4 = None
-
-            # Edge mask layers
-            if do_edge:
-                with tf.variable_scope('edge'):
-                    upcnv5_e = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5_e')
-
-                    upcnv4_e = slim.conv2d_transpose(upcnv5_e, 128, [3, 3], stride=2, scope='upcnv4_e')
-                    mask4_e = slim.conv2d(upcnv4_e, num_source * 2, [3, 3], stride=1, scope='mask4_e', 
-                        normalizer_fn=None, activation_fn=None)
-
-                    upcnv3_e = slim.conv2d_transpose(upcnv4_e, 64,  [3, 3], stride=2, scope='upcnv3_e')
-                    mask3_e = slim.conv2d(upcnv3_e, num_source * 2, [3, 3], stride=1, scope='mask3_e', 
-                        normalizer_fn=None, activation_fn=None)
-                    
-                    upcnv2_e = slim.conv2d_transpose(upcnv3_e, 32,  [5, 5], stride=2, scope='upcnv2_e')
-                    mask2_e = slim.conv2d(upcnv2_e, num_source * 2, [5, 5], stride=1, scope='mask2_e', 
-                        normalizer_fn=None, activation_fn=None)
-
-                    upcnv1_e = slim.conv2d_transpose(upcnv2_e, 16,  [7, 7], stride=2, scope='upcnv1_e')
-                    mask1_e = slim.conv2d(upcnv1_e, num_source * 2, [7, 7], stride=1, scope='mask1_e', 
-                        normalizer_fn=None, activation_fn=None)
-            else:
-                mask1_e = None
-                mask2_e = None
-                mask3_e = None
-                mask4_e = None
 
             end_points = utils.convert_collection_to_dict(end_points_collection)
-            return pose_final, [mask1, mask2, mask3, mask4], [mask1_e, mask2_e, mask3_e, mask4_e], end_points
+            return pose_final, [mask1, mask2, mask3, mask4], end_points
 
-def disp_net(tgt_image, is_training=True):
+def disp_net(tgt_image, is_training=True, do_edge=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
@@ -175,8 +144,56 @@ def disp_net(tgt_image, is_training=True):
             disp1  = DISP_SCALING * slim.conv2d(icnv1, 1,   [3, 3], stride=1,
                 activation_fn=tf.sigmoid, normalizer_fn=None, scope='disp1') + MIN_DISP
 
-            # print ("disp shape")
-            # print (disp1.get_shape().as_list())
+            # Edge mask layers
+            if do_edge:
+                with tf.variable_scope('edge'):
+                    upcnv7_e = slim.conv2d_transpose(cnv7b, 512, [3, 3], stride=2, scope='upcnv7')
+                    # There might be dimension mismatch due to uneven down/up-sampling
+                    upcnv7_e = resize_like(upcnv7_e, cnv6b)
+                    i7_in_e  = tf.concat([upcnv7_e, cnv6b], axis=3)
+                    icnv7_e  = slim.conv2d(i7_in_e, 512, [3, 3], stride=1, scope='icnv7')
+
+                    upcnv6_e = slim.conv2d_transpose(icnv7_e, 512, [3, 3], stride=2, scope='upcnv6')
+                    upcnv6_e = resize_like(upcnv6_e, cnv5b)
+                    i6_in_e  = tf.concat([upcnv6_e, cnv5b], axis=3)
+                    icnv6_e  = slim.conv2d(i6_in_e, 512, [3, 3], stride=1, scope='icnv6'    )
+
+                    upcnv5_e = slim.conv2d_transpose(icnv6_e, 256, [3, 3], stride=2, scope='upcnv5')
+                    upcnv5_e = resize_like(upcnv5_e, cnv4b)
+                    i5_in_e  = tf.concat([upcnv5_e, cnv4b], axis=3)
+                    icnv5_e  = slim.conv2d(i5_in_e, 256, [3, 3], stride=1, scope='icnv5')
+
+                    upcnv4_e = slim.conv2d_transpose(icnv5_e, 128, [3, 3], stride=2, scope='upcnv4')
+                    i4_in_e  = tf.concat([upcnv4_e, cnv3b], axis=3)
+                    icnv4_e  = slim.conv2d(i4_in, 128, [3, 3], stride=1, scope='icnv4')
+                    edge4  = DISP_SCALING * slim.conv2d(icnv4_e, 1,   [3, 3], stride=1, 
+                        activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge4') + MIN_DISP
+                    edge4_up = tf.image.resize_bilinear(edge4, [np.int(H/4), np.int(W/4)])
+
+                    upcnv3_e = slim.conv2d_transpose(icnv4_e, 64,  [3, 3], stride=2, scope='upcnv3')
+                    i3_in_e  = tf.concat([upcnv3_e, cnv2b, edge4_up], axis=3)
+                    icnv3_e  = slim.conv2d(i3_in_e, 64,  [3, 3], stride=1, scope='icnv3')
+                    edge3  = DISP_SCALING * slim.conv2d(icnv3_e, 1,   [3, 3], stride=1, 
+                        activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge3') + MIN_DISP
+                    edge3_up = tf.image.resize_bilinear(edge3, [np.int(H/2), np.int(W/2)])
+
+                    upcnv2_e = slim.conv2d_transpose(icnv3_e, 32,  [3, 3], stride=2, scope='upcnv2')
+                    i2_in_e  = tf.concat([upcnv2_e, cnv1b, edge3_up], axis=3)
+                    icnv2_e  = slim.conv2d(i2_in_e, 32,  [3, 3], stride=1, scope='icnv2')
+                    edge2  = DISP_SCALING * slim.conv2d(icnv2_e, 1,   [3, 3], stride=1, 
+                        activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge2') + MIN_DISP
+                    edge2_up = tf.image.resize_bilinear(edge2, [H, W])
+
+                    upcnv1_e = slim.conv2d_transpose(icnv2_e, 16,  [3, 3], stride=2, scope='upcnv1')
+                    i1_in_e  = tf.concat([upcnv1_e, edge2_up], axis=3)
+                    icnv1_e  = slim.conv2d(i1_in_e, 16,  [3, 3], stride=1, scope='icnv1')
+                    edge1  = DISP_SCALING * slim.conv2d(icnv1_e, 1,   [3, 3], stride=1,
+                        activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge1') + MIN_DISP
+            else:
+                edge1 = None
+                edge2 = None
+                edge3 = None
+                edge4 = None
             
             end_points = utils.convert_collection_to_dict(end_points_collection)
-            return [disp1, disp2, disp3, disp4], end_points
+            return [disp1, disp2, disp3, disp4], [edge1, edge2, edge3, edge4], end_points

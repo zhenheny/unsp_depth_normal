@@ -74,16 +74,15 @@ class SfMLearner(object):
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(tgt_image)
+            pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
+                                        do_edge=(opt.edge_mask_weight > 0))
             pred_depth = [1./d for d in pred_disp]
 
-
         with tf.name_scope("pose_and_explainability_prediction"):
-            pred_poses, pred_exp_logits, pred_edge_logits, pose_exp_net_endpoints = \
+            pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
                              src_image_stack, 
-                             do_exp=(opt.explain_reg_weight > 0),
-                             do_edge=(opt.edge_mask_weight > 0))
+                             do_exp=(opt.explain_reg_weight > 0))
 
         with tf.name_scope("compute_loss"):
             pixel_loss = 0
@@ -105,7 +104,8 @@ class SfMLearner(object):
             for s in range(opt.num_scales):
                 # Construct a reference explainability mask (i.e. all 
                 # pixels are explainable)
-                ref_exp_mask = self.get_reference_explain_mask(s)
+                if opt.explain_reg_weight > 0:
+                    ref_exp_mask = self.get_reference_explain_mask(s)
                 # Scale the source and target images for computing loss at the 
                 # according scale.
                 curr_tgt_image = tf.image.resize_bilinear(tgt_image, 
@@ -130,6 +130,28 @@ class SfMLearner(object):
                 # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
                 pred_normals.append(pred_normal)
                 pred_disps2.append(pred_disp2)
+
+                ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss
+                ## ref_edge_mask is all 0
+                if opt.edge_mask_weight > 0:
+                    ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
+                    # edge_loss += opt.edge_mask_weight *\
+                                # tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
+                    labels = tf.reshape(ref_edge_mask, [-1,1])
+                    logits = tf.reshape(pred_edges[s], [-1,1])
+                    edge_loss += opt.edge_mask_weight * \
+                                tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+                                                labels=labels,
+                                                logits = logits))
+
+                ## compute smoothness loss considering the predicted edges
+                if opt.smooth_weight > 0:
+                    if opt.edge_mask_weight > 0:
+                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s]))
+                    else:
+                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                            self.compute_smooth_loss(pred_disp2))
 
                 # if opt.smooth_weight > 0:
                 #     # for i in range(len(pred_depths2)):
@@ -170,26 +192,6 @@ class SfMLearner(object):
                             self.compute_exp_reg_loss(curr_exp_logits,
                                                       ref_exp_mask)
                         curr_exp = tf.nn.softmax(curr_exp_logits)
-
-                    ## cross_entroypy loss as regularization for the edge prediction
-                    ## ref_mask is [0,1], in curr_edge[:,:,:,0] 1 represents the edge
-                    if opt.edge_mask_weight > 0:
-                        curr_edge_logits = tf.slice(pred_edge_logits[s],
-                                                  [0, 0, 0, i*2],
-                                                  [-1, -1, -1, 2])
-                        edge_loss += opt.edge_mask_weight * \
-                            self.compute_exp_reg_loss(curr_edge_logits,
-                                                    ref_exp_mask)
-                        curr_edge = tf.nn.softmax(curr_edge_logits)
-                    print ("shape of pred_disp2:")
-                    print(pred_disp2.shape)
-                    print ("shape of curr_edge:")
-                    print(curr_edge.shape)
-                    ## compute smoothness loss considering the predicted edges
-                    if opt.smooth_weight > 0:
-                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp2[:,:,:,0], curr_edge[:,:,:,0]))
-                            # self.compute_smooth_loss(pred_disp2))
 
                     # Inverse warp the source image to the target image frame
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
@@ -285,8 +287,7 @@ class SfMLearner(object):
                             flyout_map = curr_flyout_map
                         if opt.explain_reg_weight > 0:
                             exp_mask_stack = tf.expand_dims(curr_exp[:,:,:,1], -1)
-                        if opt.edge_mask_weight > 0:
-                            edge_mask = tf.expand_dims(curr_edge[:,:,:,1], -1)
+
                     else:
                         proj_image_stack = tf.concat([proj_image_stack, 
                                                       curr_proj_image], axis=3)
@@ -294,8 +295,6 @@ class SfMLearner(object):
                                                       curr_proj_error], axis=3)
                         if curr_flyout_map != []:
                             flyout_map = tf.concat([flyout_map, curr_flyout_map], axis=3)
-                        if opt.edge_mask_weight > 0:
-                            edge_mask = tf.concat([edge_mask, tf.expand_dims(curr_edge[:,:,:,1], -1)], axis=3)
                         if opt.explain_reg_weight > 0:
                             exp_mask_stack = tf.concat([exp_mask_stack, 
                                 tf.expand_dims(curr_exp[:,:,:,1], -1)], axis=3)
@@ -305,7 +304,6 @@ class SfMLearner(object):
                 proj_image_stack_all.append(proj_image_stack)
                 proj_error_stack_all.append(proj_error_stack)
                 flyout_map_all.append(flyout_map)
-                edge_mask_all.append(edge_mask)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
             total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss + edge_loss
@@ -343,7 +341,7 @@ class SfMLearner(object):
         self.proj_error_stack_all = proj_error_stack_all
         self.exp_mask_stack_all = exp_mask_stack_all
         self.flyout_map_all = flyout_map_all
-        self.edge_mask_all = edge_mask_all
+        self.pred_edges = pred_edges
 
     def get_reference_explain_mask(self, downscaling):
         opt = self.opt
@@ -452,8 +450,8 @@ class SfMLearner(object):
         ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
         def gradient(pred):
-            D_dy = pred[:, 1:, :,] - pred[:, :-1, :,]
-            D_dx = pred[:, :, 1:,] - pred[:, :, :-1,]
+            D_dy = pred[:, 1:, :, :] - pred[:, :-1, :, :]
+            D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
             return D_dx, D_dy
 
         disp_grad_x, disp_grad_y = gradient(disp)
@@ -465,8 +463,8 @@ class SfMLearner(object):
         weight_x = tf.exp(-1*alpha*tf.abs(edge))
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
 
-        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1])) + \
-                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:]))
+        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
+                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
 
         return smoothness_loss
 
@@ -501,6 +499,7 @@ class SfMLearner(object):
         tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s])
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
+        tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
         for i in range(opt.num_source):
 
             if opt.explain_reg_weight > 0:
@@ -515,8 +514,6 @@ class SfMLearner(object):
             tf.summary.image('scale%d_proj_error_%d' % (s, i),
                 tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
             tf.summary.image('scale%d_flyout_mask_%d' % (s,i), self.flyout_map_all[s][:,:,:,i*3:(i+1)*3])
-            tf.summary.image('scale%d_edge_map_%d' % (s,i), \
-                            tf.expand_dims(self.edge_mask_all[s][:,:,:,i],-1))
             # tf.summary.image('scale%d_src_error_%d' % (s, i),
             #     self.deprocess_image(tf.abs(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3] - self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3])))
             # tf.summary.histogram("tx", self.pred_poses[:,:,0])
@@ -709,7 +706,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
-            pred_disp, depth_net_endpoints = disp_net(input_mc)
+            pred_disp, _, depth_net_endpoints = disp_net(input_mc)
             pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc)
