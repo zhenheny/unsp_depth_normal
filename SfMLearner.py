@@ -131,18 +131,26 @@ class SfMLearner(object):
                 pred_normals.append(pred_normal)
                 pred_disps2.append(pred_disp2)
 
-                ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss
+                ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss; 3. L1 loss as edge_loss
                 ## ref_edge_mask is all 0
                 if opt.edge_mask_weight > 0:
+                    ## 1. L2 loss
                     ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
+                    edge_loss += opt.edge_mask_weight *\
+                                tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
+
+                    ## 2. cross_entropy loss
+                    # labels = tf.reshape(ref_edge_mask, [-1,1])
+                    # logits = tf.reshape(pred_edges[s], [-1,1])
+                    # edge_loss += opt.edge_mask_weight * \
+                    #             tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+                    #                             labels=labels,
+                    #                             logits = logits))
+
+                    ## 3. L1 loss
+                    # ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
                     # edge_loss += opt.edge_mask_weight *\
-                                # tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
-                    labels = tf.reshape(ref_edge_mask, [-1,1])
-                    logits = tf.reshape(pred_edges[s], [-1,1])
-                    edge_loss += opt.edge_mask_weight * \
-                                tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-                                                labels=labels,
-                                                logits = logits))
+                    #             tf.reduce_mean(tf.abs(tf.squeeze(pred_edges[s])-ref_edge_mask))
 
                 ## compute smoothness loss considering the predicted edges
                 if opt.smooth_weight > 0:
@@ -458,7 +466,7 @@ class SfMLearner(object):
         dx2, dxdy = gradient(disp_grad_x)
         dydx, dy2 = gradient(disp_grad_y)
 
-        alpha = 10
+        alpha = 10.0
         # edge_grad_x, edge_grad_y = gradient(edge)
         weight_x = tf.exp(-1*alpha*tf.abs(edge))
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
@@ -532,8 +540,11 @@ class SfMLearner(object):
         # TODO: currently fixed to 4
         opt.num_scales = 4
         self.opt = opt
-        with open("../eval/"+opt.eval_txt, "w") as f:
-            f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format('abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
+
+        if not ((opt.continue_train==True) and (opt.checkpoint_continue=="")):
+            with open("../eval/"+opt.eval_txt, "w") as f:
+                f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format('abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
+
         with tf.variable_scope("training"):
             self.build_train_graph()
         with tf.variable_scope("training", reuse=True):
@@ -543,7 +554,6 @@ class SfMLearner(object):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
         load_saver_vars = [var for var in tf.model_variables() if "/edge/" not in var.name]
-        # print(saver_vars)
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
@@ -563,9 +573,10 @@ class SfMLearner(object):
                 if opt.checkpoint_continue == "":
                     checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
                     checkpoint = opt.checkpoint_dir + "/model.latest"
+                    self.saver.restore(sess, checkpoint)
                 else:
                     checkpoint = opt.checkpoint_continue
-                self.load_saver.restore(sess, checkpoint)
+                    self.load_saver.restore(sess, checkpoint)
                 # self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
                 start_time = time.time()
@@ -616,9 +627,11 @@ class SfMLearner(object):
                             modes = ["kitti"]
                             root_img_path = "/home/zhenheng/datasets/kitti/"
                             normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+                            normal_gt_path = "/home/zhenheng/datasets/kitti/kitti_normal_gt_monofill_mask/"
                             input_intrinsics = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl",'rb'))
                             with open("../eval/"+opt.eval_txt,"a") as write_file:
                                     write_file.write("Evaluation at iter [" + str(step)+"]: \n")
+
                             for mode in modes:
                                 test_result_depth, test_result_normal = [], []
                                 test_fn = root_img_path+"test_files_"+mode+".txt"
@@ -634,8 +647,8 @@ class SfMLearner(object):
                                         pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
                                         test_result_depth.append(np.squeeze(pred_depth2_np))
                                         pred_normal_np = np.squeeze(pred_normal_np)
-                                        pred_normal_np[:,:,1] *= -1
-                                        pred_normal_np[:,:,2] *= -1
+                                        # pred_normal_np[:,:,1] *= -1
+                                        # pred_normal_np[:,:,2] *= -1
                                         # pred_normal_np = (pred_normal_np + 1.0) / 2.0
                                         test_result_normal.append(pred_normal_np)
 

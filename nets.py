@@ -68,6 +68,11 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
                     upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
                     mask1 = slim.conv2d(upcnv1, num_source * 2, [7, 7], stride=1, scope='mask1', 
                         normalizer_fn=None, activation_fn=None)
+            else:
+                mask1 = None
+                mask2 = None
+                mask3 = None
+                mask4 = None
 
             end_points = utils.convert_collection_to_dict(end_points_collection)
             return pose_final, [mask1, mask2, mask3, mask4], end_points

@@ -38,8 +38,7 @@ def dump_example(n):
     fy = intrinsics[1, 1]
     cx = intrinsics[0, 2]
     cy = intrinsics[1, 2]
-    if args.subset != "":
-        dump_dir = os.path.join(args.dump_root+"/", example['folder_name'])
+    dump_dir = os.path.join(args.dump_root+"/", example['folder_name'])
     # if not os.path.isdir(dump_dir):
     #     os.makedirs(dump_dir, exist_ok=True)
     try: 
@@ -54,10 +53,6 @@ def dump_example(n):
         f.write('%f,0.,%f,0.,%f,%f,0.,0.,1.' % (fx, cx, fy, cy))
 
 def main():
-    dump_root = args.dataset_dir+"/data_format_train_gap"+str(args.sample_gap)+"_"+args.subset
-    args.dump_root = dump_root
-    if not os.path.exists(args.dump_root):
-        os.makedirs(args.dump_root)
 
     global data_loader
     if args.dataset_name == 'kitti_odom':
@@ -74,6 +69,7 @@ def main():
                                        img_height=args.img_height,
                                        img_width=args.img_width,
                                        seq_length=args.seq_length)
+        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)
 
     if args.dataset_name == 'kitti_raw_stereo':
         from kitti.kitti_raw_loader import kitti_raw_loader
@@ -89,6 +85,7 @@ def main():
                                         img_height=args.img_height,
                                         img_width=args.img_width,
                                         seq_length=args.seq_length)
+        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)
 
     if args.dataset_name == "nyuv2":
         from nyuv2.nyuv2_loader import nyuv2_loader
@@ -98,8 +95,13 @@ def main():
                                        seq_length=args.seq_length,
                                        sample_gap=args.sample_gap,
                                        subset=args.subset)
+        dump_root = args.dataset_dir+"/data_format_train_gap"+str(args.sample_gap)+"_"+args.subset
 
-    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(20000,data_loader.num_train))
+    args.dump_root = dump_root
+    if not os.path.exists(args.dump_root):
+        os.makedirs(args.dump_root)
+
+    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(data_loader.num_train))
 
     # Split into train/val
     np.random.seed(8964)

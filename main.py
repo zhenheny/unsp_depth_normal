@@ -1,6 +1,7 @@
 from __future__ import division
 import os
 import sys
+import time
 sys.path.append("../eval")
 import numpy as np
 import scipy.misc
@@ -54,6 +55,7 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
     root_img_path = "/home/zhenheng/datasets/kitti/"
     normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf/"
     normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+    normal_gt_path = "/home/zhenheng/datasets/kitti/"+split+"_normal_gt_monofill_mask/"
     mode = 'depth'
     img_height=128
     img_width=416
@@ -61,8 +63,8 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt_new/model-40249'
     # ckpt_file = 'models/model-145248'
     sfm = SfMLearner()
-    with tf.variable_scope("training"):
-        sfm.setup_inference(img_height, img_width, mode=mode)
+    # with tf.variable_scope("training"):
+    sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()]) 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
@@ -84,8 +86,8 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             pred_normal_np = np.squeeze(pred['normals'])
             # pred_normal_np[:,:,0], pred_normal_np[:,:,2] = pred_normal_np[:,:,2], pred_normal_np[:,:,0] 
             # pred_normal_np[:,:,0] *= -1
-            pred_normal_np[:,:,1] *= -1
-            pred_normal_np[:,:,2] *= -1
+            # pred_normal_np[:,:,1] *= -1
+            # pred_normal_np[:,:,2] *= -1
             # # pred_normal_np[:,:,0] -= 2
             # # pred_normal_np[:,:,2] -= 2
             # pred_normal_np = (pred_normal_np + 1.0) / 2.0
@@ -97,11 +99,10 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             pred_normals_test.append(pred_normal_np)
 
     if eval_bool:
-        gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)
-        abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, split, vis=True)
-        gt_depths, pred_depths2, gt_disparities = load_depths(pred_depths2_test, split, root_img_path, test_fn)
-        abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=True)
-
+        # gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)
+        # abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, split, vis=True)
+        # gt_depths, pred_depths2, gt_disparities = load_depths(pred_depths2_test, split, root_img_path, test_fn)
+        # abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=True)
         pred_normals, gt_normals = load_normals(pred_normals_test, split, normal_gt_path,test_fn) 
         dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals, vis=True)
         # scipy.misc.imsave(save_path+"visualization/"+file.split("/")[-1], normalize_depth_for_display(pred['depth'][0,:,:,0]))
