@@ -255,6 +255,9 @@ class SfMLearner(object):
                     if opt.explain_reg_weight > 0:
                         pixel_loss += tf.reduce_mean(curr_proj_error * \
                             tf.expand_dims(curr_exp[:,:,:,1], -1))
+                    elif opt.edge_as_explain > 0:
+                        pixel_loss += tf.reduce_mean(curr_proj_error * \
+                            (1.0 - pred_edges[s]))
                     else:
                         pixel_loss += tf.reduce_mean(curr_proj_error) 
 
@@ -476,19 +479,25 @@ class SfMLearner(object):
 
         return smoothness_loss
 
+    def compute_smooth_loss_wedge_noexp(self, disp, edge):
+        ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
-        # disp_gradients_x = [self.gradient_x(d) for d in disp]
-        # disp_gradients_y = [self.gradient_y(d) for d in disp]
+        def gradient(pred):
+            D_dy = pred[:, 1:, :, :] - pred[:, :-1, :, :]
+            D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
+            return D_dx, D_dy
 
-        # image_gradients_x = [self.gradient_x(img) for img in pyramid]
-        # image_gradients_y = [self.gradient_y(img) for img in pyramid]
+        disp_grad_x, disp_grad_y = gradient(disp)
+        dx2, dxdy = gradient(disp_grad_x)
+        dydx, dy2 = gradient(disp_grad_y)
+        # edge_grad_x, edge_grad_y = gradient(edge)
+        weight_x = 1-edge
+        weight_y = 1-edge
 
-        # weights_x = [tf.exp(-tf.reduce_mean(tf.abs(g), 3, keep_dims=True)) for g in image_gradients_x]
-        # weights_y = [tf.exp(-tf.reduce_mean(tf.abs(g), 3, keep_dims=True)) for g in image_gradients_y]
+        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
+                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
 
-        # smoothness_x = [disp_gradients_x[i] * weights_x[i] for i in range(4)]
-        # smoothness_y = [disp_gradients_y[i] * weights_y[i] for i in range(4)]
-        # return smoothness_x + smoothness_y
+        return smoothness_loss
 
     def collect_summaries(self):
         opt = self.opt
