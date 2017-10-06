@@ -156,7 +156,7 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s]))
+                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
                     else:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                             self.compute_smooth_loss(pred_disp2))
@@ -188,7 +188,7 @@ class SfMLearner(object):
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
-                for i in range(opt.num_source):
+                for i in range(opt.num_source-1):
                     # Cross-entropy loss as regularization for the explainability prediction
                     if opt.explain_reg_weight > 0:
                         curr_exp_logits = tf.slice(pred_exp_logits[s], 
@@ -457,7 +457,7 @@ class SfMLearner(object):
                               tf.reduce_mean(tf.abs(smoothness_dy2))
         return smoothness_loss_2nd
 
-    def compute_smooth_loss_wedge(self, disp, edge):
+    def compute_smooth_loss_wedge(self, disp, edge, mode='l2'):
         ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
         def gradient(pred):
@@ -474,8 +474,12 @@ class SfMLearner(object):
         weight_x = tf.exp(-1*alpha*tf.abs(edge))
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
 
-        smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
+        if mode == "l2":
+            smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
                           tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
+        if mode == "l1":
+            smoothness_loss = tf.reduce_mean(tf.abs(disp_grad_x * weight_x[:,:,1:,:])) + \
+                          tf.reduce_mean(tf.abs(disp_grad_y * weight_y[:,1:,:,:]))
 
         return smoothness_loss
 
@@ -517,7 +521,7 @@ class SfMLearner(object):
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
         tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
-        for i in range(opt.num_source):
+        for i in range(opt.num_source-1):
 
             if opt.explain_reg_weight > 0:
                 tf.summary.image(
