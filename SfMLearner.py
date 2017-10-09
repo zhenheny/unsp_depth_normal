@@ -125,6 +125,7 @@ class SfMLearner(object):
                 # normal depth2 to avoid corner case of preddepth2=0
                 # pred_disp2 = 1.0 / (pred_depth2 - tf.reduce_min(pred_depth2) + 1e-2)
                 pred_disp2 = 1.0 / pred_depth2
+
                 # # print (pred_depth2.shape)
 
                 # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
@@ -138,7 +139,8 @@ class SfMLearner(object):
                     ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
                     edge_loss += opt.edge_mask_weight *\
                                 tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
-
+                    # edge_loss += opt.edge_mask_weight *\
+                    #             tf.reduce_sum(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     ## 2. cross_entropy loss
                     # labels = tf.reshape(ref_edge_mask, [-1,1])
                     # logits = tf.reshape(pred_edges[s], [-1,1])
@@ -188,7 +190,7 @@ class SfMLearner(object):
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
-                for i in range(opt.num_source-1):
+                for i in range(opt.num_source):
                     # Cross-entropy loss as regularization for the explainability prediction
                     if opt.explain_reg_weight > 0:
                         curr_exp_logits = tf.slice(pred_exp_logits[s], 
@@ -457,7 +459,7 @@ class SfMLearner(object):
                               tf.reduce_mean(tf.abs(smoothness_dy2))
         return smoothness_loss_2nd
 
-    def compute_smooth_loss_wedge(self, disp, edge, mode='l2'):
+    def compute_smooth_loss_wedge(self, disp, edge, mode='l1'):
         ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
         def gradient(pred):
@@ -475,8 +477,10 @@ class SfMLearner(object):
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
 
         if mode == "l2":
-            smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
-                          tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
+            # smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
+            #               tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
+            smoothness_loss = tf.reduce_mean(tf.clip_by_value(dx2 * weight_x[:,:,1:-1,:], 0.0, 10.0)) + \
+                          tf.reduce_mean(tf.clip_by_value(dy2 * weight_y[:,1:-1,:,:], 0.0, 10.0))
         if mode == "l1":
             smoothness_loss = tf.reduce_mean(tf.abs(disp_grad_x * weight_x[:,:,1:,:])) + \
                           tf.reduce_mean(tf.abs(disp_grad_y * weight_y[:,1:,:,:]))
@@ -521,7 +525,7 @@ class SfMLearner(object):
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
         tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
-        for i in range(opt.num_source-1):
+        for i in range(opt.num_source):
 
             if opt.explain_reg_weight > 0:
                 tf.summary.image(
@@ -609,6 +613,7 @@ class SfMLearner(object):
                     fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
                     # fetches['pred_depth2'] = self.pred_depth2
+                    fetches['pred_disp2'] = self.pred_disps2[0]
                     fetches['pred_poses'] = self.pred_poses
                     fetches["summary"] = sv.summary_op
 
@@ -619,6 +624,8 @@ class SfMLearner(object):
                     sv.summary_writer.add_summary(results["summary"], gs)
                     train_epoch = math.ceil(gs / opt.steps_per_epoch)
                     train_step = gs - (train_epoch - 1) * opt.steps_per_epoch
+                    # print(results['pred_disp2'].max())
+                    # print(results['pred_disp2'].min())
                     print("Epoch: [%2d] [%5d/%5d] time: %4.4f/it loss: %.3f" \
                             % (train_epoch, train_step, opt.steps_per_epoch, \
                                 time.time() - start_time, results["loss"]))
@@ -742,7 +749,6 @@ class SfMLearner(object):
             print(pred_depths2_avg.shape)
             print("shape of pred_normal")
             print(pred_normal.shape)
-        # pred_depth2 = 1.0 / pred_dsip2
         self.inputs = input_uint8
         self.input_intrinsics = intrinsics
         self.pred_depth_test = pred_depth[0]
