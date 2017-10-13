@@ -137,7 +137,7 @@ class SfMLearner(object):
                 if opt.edge_mask_weight > 0:
                     ## 1. L2 loss
                     ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
-                    edge_loss += opt.edge_mask_weight *\
+                    edge_loss += opt.edge_mask_weight/(2**s) *\
                                 tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     # edge_loss += opt.edge_mask_weight *\
                     #             tf.reduce_sum(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
@@ -643,7 +643,7 @@ class SfMLearner(object):
                         dataset_name = opt.dataset_dir.split("/")[-2]
 
                         ## evaluation for kitti dataset
-                        if dataset_name == "kitti":
+                        if dataset_name in ["kitti",'cityscapes']:
                             modes = ["kitti"]
                             root_img_path = "/home/zhenheng/datasets/kitti/"
                             normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"

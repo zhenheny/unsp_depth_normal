@@ -179,6 +179,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
 
                     upcnv3_e = slim.conv2d_transpose(icnv4_e, 64,  [3, 3], stride=2, scope='upcnv3')
                     i3_in_e  = tf.concat([upcnv3_e, cnv2b, edge4_up], axis=3)
+                    # i3_in_e  = tf.concat([upcnv3_e, cnv2b], axis=3)
                     icnv3_e  = slim.conv2d(i3_in_e, 64,  [3, 3], stride=1, scope='icnv3')
                     edge3  = slim.conv2d(icnv3_e, 1,   [3, 3], stride=1, 
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge3') + MIN_EDGE
@@ -187,6 +188,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
 
                     upcnv2_e = slim.conv2d_transpose(icnv3_e, 32,  [3, 3], stride=2, scope='upcnv2')
                     i2_in_e  = tf.concat([upcnv2_e, cnv1b, edge3_up], axis=3)
+                    # i2_in_e  = tf.concat([upcnv2_e, cnv1b], axis=3)
                     icnv2_e  = slim.conv2d(i2_in_e, 32,  [3, 3], stride=1, scope='icnv2')
                     edge2  = slim.conv2d(icnv2_e, 1,   [3, 3], stride=1, 
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge2') + MIN_EDGE
@@ -195,17 +197,15 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
 
                     upcnv1_e = slim.conv2d_transpose(icnv2_e, 16,  [3, 3], stride=2, scope='upcnv1')
                     i1_in_e  = tf.concat([upcnv1_e, edge2_up], axis=3)
+                    # i1_in_e  = tf.concat([upcnv1_e], axis=3)
                     icnv1_e  = slim.conv2d(i1_in_e, 16,  [3, 3], stride=1, scope='icnv1')
                     edge1  = slim.conv2d(icnv1_e, 1,   [3, 3], stride=1,
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge1') + MIN_EDGE
 
-                    ## down-scale the edges at lower scale from highest resolution edge results
-                    # print ("size of edge2")
-                    
-                    # edge2 = slim.max_pool2d(edge1, 3)
-                    # print (edge2.get_shape().as_list())
-                    # edge3 = slim.max_pool2d(edge2, 3)
-                    # edge4 = slim.max_pool2d(edge3, 3)
+                    # # down-scale the edges at lower scale from highest resolution edge results
+                    # edge2 = slim.max_pool2d(edge1, 2)
+                    # edge3 = slim.max_pool2d(edge2, 2)
+                    # edge4 = slim.max_pool2d(edge3, 2)
             else:
                 edge1 = None
                 edge2 = None
