@@ -1,5 +1,5 @@
-sudo python3 main.py --split eigen \
-	 --ckpt_file /home/zhenheng/works/unsp_depth_normal/SfMLearner/models/model-145248 \
+sudo python3 main.py --split kitti \
+	 --ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_depthsmooth_wedgel2_alpha10_clip0_wt0.2_edgel2_noscaling_wt0.2_expwt0.4_sfmpy0723_depth1normal_eval_cont/model-80002 \
 	--gpu_id 1
 #--ckpt_file /home/zhenheng/works/unsp_depth_normal/SfMLearner/models/model-145248 \
 # # --ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_1pty0_smoothloss_depth0edge_depth1normal_eval/model-140001  \

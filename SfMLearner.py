@@ -742,7 +742,7 @@ class SfMLearner(object):
             pred_disp, _, depth_net_endpoints = disp_net(input_mc)
             pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
-            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc)
+            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
             pred_depths2_avg = pred_depths2
             # pred_depths2_avg = tf.reduce_mean([pred_depths2[i] for i in range(len(pred_depths2))], axis=0)
             print("shape of pred_depths2_avg")
