@@ -134,11 +134,12 @@ class SfMLearner(object):
 
                 ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss; 3. L1 loss as edge_loss
                 ## ref_edge_mask is all 0
-                if opt.edge_mask_weight > 0:
-                    ## 1. L2 loss
-                    ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
-                    edge_loss += opt.edge_mask_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
+                if s == 0:
+                    if opt.edge_mask_weight > 0:
+                        ## 1. L2 loss
+                        ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
+                        edge_loss += opt.edge_mask_weight/(2**s) *\
+                                    tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     # edge_loss += opt.edge_mask_weight *\
                     #             tf.reduce_sum(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     ## 2. cross_entropy loss
