@@ -95,6 +95,10 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             # pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
             pred_depths_test.append(pred['depth'][0,0:,0:,0])
             pred_depths2_test.append(pred['depth2'][0,2:-2,2:-2,0])
+            for s in range(4):
+                print (pred['edges'][s].shape)
+                edge_image = scipy.misc.imresize(np.squeeze(pred['edges'][s]), [img_height, img_width], interp="nearest")
+                scipy.misc.imsave("../edge_vis/%03d_%01d.png" % (i, s), edge_image)
             # scipy.misc.imsave("./test_eval/%06d_10.png" % i, normalize_depth_for_display(pred['depth'][0,:,:,0]))
             pred_normals_test.append(pred_normal_np)
 

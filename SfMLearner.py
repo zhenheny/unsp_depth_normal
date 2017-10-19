@@ -32,7 +32,7 @@ class SfMLearner(object):
             # seed = 654
 
             # Load the list of training files into queues
-            file_list = self.format_file_list(opt.dataset_dir, 'train')
+            file_list = self.format_file_list(opt.dataset_dir, 'train_val')
             image_paths_queue = tf.train.string_input_producer(
                 file_list['image_file_list'], 
                 seed=seed, 
@@ -134,12 +134,12 @@ class SfMLearner(object):
 
                 ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss; 3. L1 loss as edge_loss
                 ## ref_edge_mask is all 0
-                if s == 0:
-                    if opt.edge_mask_weight > 0:
-                        ## 1. L2 loss
-                        ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
-                        edge_loss += opt.edge_mask_weight/(2**s) *\
-                                    tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
+                # if s == 0:
+                if opt.edge_mask_weight > 0:
+                    ## 1. L2 loss
+                    ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
+                    edge_loss += opt.edge_mask_weight/(2**s) *\
+                                tf.reduce_mean(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     # edge_loss += opt.edge_mask_weight *\
                     #             tf.reduce_sum(tf.square(tf.squeeze(pred_edges[s])-ref_edge_mask))
                     ## 2. cross_entropy loss
@@ -740,7 +740,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
-            pred_disp, _, depth_net_endpoints = disp_net(input_mc)
+            pred_disp, pred_edges, depth_net_endpoints = disp_net(input_mc, do_edge=True)
             pred_depth = [1./disp for disp in pred_disp]   
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
@@ -752,6 +752,7 @@ class SfMLearner(object):
             print(pred_normal.shape)
         self.inputs = input_uint8
         self.input_intrinsics = intrinsics
+        self.pred_edges_test = pred_edges
         self.pred_depth_test = pred_depth[0]
         self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
         self.pred_normal_test = pred_normal
@@ -801,6 +802,7 @@ class SfMLearner(object):
         if mode == 'depth':
             fetches['depth'] = self.pred_depth_test
             fetches['disp'] = self.pred_disp_test
+            fetches['edges'] = self.pred_edges_test
             if intrinsics != []:
                 fetches['depth2'] = self.pred_depth2_test
                 fetches['normals'] = self.pred_normal_test
