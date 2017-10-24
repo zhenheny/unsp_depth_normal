@@ -51,15 +51,22 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
     if split == "kitti":
         intrinsic_matrixes = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl", "rb"))
     
-    save_path = "/home/zhenheng/Works/SfMLearner/eval/kitti/"
-    root_img_path = "/home/zhenheng/datasets/kitti/"
-    normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf/"
-    normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
-    normal_gt_path = "/home/zhenheng/datasets/kitti/"+split+"_normal_gt_monofill_mask/"
+    # save_path = "/home/zhenheng/Works/SfMLearner/eval/kitti/"
+    if split in ['kitti', 'eigen']:
+        root_img_path = "/home/zhenheng/datasets/kitti/"
+        normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf/"
+        normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+        normal_gt_path = "/home/zhenheng/datasets/kitti/"+split+"_normal_gt_monofill_mask/"
+        test_fn = root_img_path+"test_files_"+split+".txt"
+    elif split == "cs":
+        root_img_path = "/home/zhenheng/datasets/cityscapes/"
+        test_fn = root_img_path+"test_files_"+split+".txt"
+        normal_gt_path = ""
+
     mode = 'depth'
     img_height=256
     img_width=832
-    test_fn = root_img_path+"test_files_"+split+".txt"
+    
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt_new/model-40249'
     # ckpt_file = 'models/model-145248'
     sfm = SfMLearner()
@@ -77,7 +84,10 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             if intrinsic_matrixes != []:
                 intrinsic = np.expand_dims(np.array(intrinsic_matrixes[file.split("/")[-1].split("_")[0]])[[0,4,2,5]] * resize_ratio, axis=0)
             else:
-                intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
+                if split == "kitti":
+                    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
+                elif split == "cs":
+                    intrinsic = [[900.0, 756.0, 445.0, 172.0]]
             I = scipy.misc.imread(file)
             I = scipy.misc.imresize(I, (img_height, img_width))
 
@@ -95,20 +105,20 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             # pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
             pred_depths_test.append(pred['depth'][0,0:,0:,0])
             pred_depths2_test.append(pred['depth2'][0,2:-2,2:-2,0])
-            for s in range(4):
-                print (pred['edges'][s].shape)
-                edge_image = scipy.misc.imresize(np.squeeze(pred['edges'][s]), [img_height, img_width], interp="nearest")
-                scipy.misc.imsave("../edge_vis/%03d_%01d.png" % (i, s), edge_image)
+            # for s in range(4):
+            #     print (pred['edges'][s].shape)
+            #     edge_image = scipy.misc.imresize(np.squeeze(pred['edges'][s]), [img_height, img_width], interp="nearest")
+            #     scipy.misc.imsave("../edge_vis/%03d_%01d.png" % (i, s), edge_image)
             # scipy.misc.imsave("./test_eval/%06d_10.png" % i, normalize_depth_for_display(pred['depth'][0,:,:,0]))
             pred_normals_test.append(pred_normal_np)
 
     if eval_bool:
         gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)
-        abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, split, vis=True)
+        eval_depth(gt_depths, pred_depths, gt_disparities, split, vis=True)
         gt_depths, pred_depths2, gt_disparities = load_depths(pred_depths2_test, split, root_img_path, test_fn)
-        abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=True)
+        eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=True)
         pred_normals, gt_normals = load_normals(pred_normals_test, split, normal_gt_path,test_fn) 
-        dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals, vis=True)
+        eval_normal(pred_normals, gt_normals, split, vis=True)
         # scipy.misc.imsave(save_path+"visualization/"+file.split("/")[-1], normalize_depth_for_display(pred['depth'][0,:,:,0]))
         # np.save(save_path+"npy_files/sfmlearner_depth.npy",npyfile)
 
@@ -126,11 +136,17 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu_id
     if args.type == "filelist":
         filelist = []
+        if args.split in ["kitti", "eigen"]:
         ## kitti
-        test_file_list = "/home/zhenheng/datasets/kitti/test_files_"+args.split+".txt"
-        with open(test_file_list) as f:
-            for line in f:
-                filelist.append("/home/zhenheng/datasets/kitti/"+line.rstrip())
+            test_file_list = "/home/zhenheng/datasets/kitti/test_files_"+args.split+".txt"
+            with open(test_file_list) as f:
+                for line in f:
+                    filelist.append("/home/zhenheng/datasets/kitti/"+line.rstrip())
+        elif args.split == "cs":
+            test_file_list = "/home/zhenheng/datasets/cityscapes/test_files_"+args.split+".txt"
+            with open(test_file_list) as f:
+                for line in f:
+                    filelist.append("/home/zhenheng/datasets/cityscapes/"+line.rstrip())
         test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
     else:
         filename = "000001_10.png"

@@ -32,7 +32,7 @@ class SfMLearner(object):
             # seed = 654
 
             # Load the list of training files into queues
-            file_list = self.format_file_list(opt.dataset_dir, 'train_val')
+            file_list = self.format_file_list(opt.dataset_dir, 'train')
             image_paths_queue = tf.train.string_input_producer(
                 file_list['image_file_list'], 
                 seed=seed, 
@@ -159,7 +159,9 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
+                            self.compute_smooth_loss_wedge(pred_disp2[:,5:-5,5:-5,], pred_edges[s][:,5:-5,5:-5,], mode='l2'))
+                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                            self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
                     else:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                             self.compute_smooth_loss(pred_disp2))
@@ -186,8 +188,9 @@ class SfMLearner(object):
 
                 if opt.normal_smooth_weight > 0:
                     normal_smooth_loss += tf.multiply(opt.normal_smooth_weight/(2**s), \
-                        self.compute_edge_aware_smooth_loss(pred_normal[:,1:-1,1:-1,:], curr_tgt_image[:,1:-1,1:-1,:]))
-                        # self.compute_smooth_loss(pred_normal[:, 1:-1, 1:-1, :]))
+                        # self.compute_edge_aware_smooth_loss(pred_normal[:,3:-3,3:-3,:], ))
+                        # self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
+                        self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
@@ -460,7 +463,7 @@ class SfMLearner(object):
                               tf.reduce_mean(tf.abs(smoothness_dy2))
         return smoothness_loss_2nd
 
-    def compute_smooth_loss_wedge(self, disp, edge, mode='l1'):
+    def compute_smooth_loss_wedge(self, disp, edge, mode='l1', alpha=10.0):
         ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
         def gradient(pred):
@@ -472,7 +475,6 @@ class SfMLearner(object):
         dx2, dxdy = gradient(disp_grad_x)
         dydx, dy2 = gradient(disp_grad_y)
 
-        alpha = 10.0
         # edge_grad_x, edge_grad_y = gradient(edge)
         weight_x = tf.exp(-1*alpha*tf.abs(edge))
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
@@ -481,7 +483,9 @@ class SfMLearner(object):
             # smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
             #               tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
             smoothness_loss = tf.reduce_mean(tf.clip_by_value(dx2 * weight_x[:,:,1:-1,:], 0.0, 10.0)) + \
-                          tf.reduce_mean(tf.clip_by_value(dy2 * weight_y[:,1:-1,:,:], 0.0, 10.0))
+                          tf.reduce_mean(tf.clip_by_value(dy2 * weight_y[:,1:-1,:,:], 0.0, 10.0)) #+ \
+                          # tf.reduce_mean(tf.clip_by_value(dxdy * weight_x[:,1:,1:,:], 0.0, 10.0)) + \
+                          # tf.reduce_mean(tf.clip_by_value(dydx * weight_y[:,1:,1:,:], 0.0, 10.0))
         if mode == "l1":
             smoothness_loss = tf.reduce_mean(tf.abs(disp_grad_x * weight_x[:,:,1:,:])) + \
                           tf.reduce_mean(tf.abs(disp_grad_y * weight_y[:,1:,:,:]))
