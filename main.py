@@ -62,6 +62,10 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
         root_img_path = "/home/zhenheng/datasets/cityscapes/"
         test_fn = root_img_path+"test_files_"+split+".txt"
         normal_gt_path = ""
+    elif split == "make3d":
+        root_img_path = "/home/zhenheng/datasets/make3d/"
+        test_fn = root_img_path+"test_files_"+split+".txt"
+        normal_gt_path = ""
 
     mode = 'depth'
     img_height=256
@@ -88,6 +92,8 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
                     intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
                 elif split == "cs":
                     intrinsic = [[900.0, 756.0, 445.0, 172.0]]
+                else:
+                    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
             I = scipy.misc.imread(file)
             I = scipy.misc.imresize(I, (img_height, img_width))
 
@@ -104,19 +110,21 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
 
             # pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
             pred_depths_test.append(pred['depth'][0,0:,0:,0])
-            pred_depths2_test.append(pred['depth2'][0,2:-2,2:-2,0])
+            pred_depths2_test.append(pred['depth2'][0,5:-5,5:-5,0])
             # for s in range(4):
             #     print (pred['edges'][s].shape)
             #     edge_image = scipy.misc.imresize(np.squeeze(pred['edges'][s]), [img_height, img_width], interp="nearest")
             #     scipy.misc.imsave("../edge_vis/%03d_%01d.png" % (i, s), edge_image)
             # scipy.misc.imsave("./test_eval/%06d_10.png" % i, normalize_depth_for_display(pred['depth'][0,:,:,0]))
             pred_normals_test.append(pred_normal_np)
+            # print(pred['edges'][0].shape)
+            scipy.misc.imsave("../eval/edge_asap_cs/%03d.jpg" % i, np.squeeze(pred['edges'][0]))
 
     if eval_bool:
         gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)
         eval_depth(gt_depths, pred_depths, gt_disparities, split, vis=True)
-        gt_depths, pred_depths2, gt_disparities = load_depths(pred_depths2_test, split, root_img_path, test_fn)
-        eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=True)
+        # gt_depths, pred_depths2, gt_disparities = load_depths(pred_depths2_test, split, root_img_path, test_fn)
+        # eval_depth(gt_depths, pred_depths2, gt_disparities, split, vis=False)
         pred_normals, gt_normals = load_normals(pred_normals_test, split, normal_gt_path,test_fn) 
         eval_normal(pred_normals, gt_normals, split, vis=True)
         # scipy.misc.imsave(save_path+"visualization/"+file.split("/")[-1], normalize_depth_for_display(pred['depth'][0,:,:,0]))
@@ -130,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpu_id', type=str, help='gpu id for evaluation', default="0")
     parser.add_argument('--ckpt_file', type=str, help='model checkpoint', required=True, default='models/model-145248')
     parser.add_argument('--type',  type=str, help='test type, img or filelist', default='filelist')
-    parser.add_argument('--eval_depth_bool', type=bool, help="evaluate the depth estimation based on standard metrics", default=True)
+    parser.add_argument('--eval_depth_bool', type=bool, help="evaluate the depth estimation based on standard metrics", default=False)
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu_id
@@ -147,6 +155,11 @@ if __name__ == "__main__":
             with open(test_file_list) as f:
                 for line in f:
                     filelist.append("/home/zhenheng/datasets/cityscapes/"+line.rstrip())
+        elif args.split == "make3d":
+            test_file_list = "/home/zhenheng/datasets/make3d/test_files_"+args.split+".txt"
+            with open(test_file_list) as f:
+                for line in f:
+                    filelist.append("/home/zhenheng/datasets/make3d/test_imgs/"+line.rstrip())
         test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
     else:
         filename = "000001_10.png"

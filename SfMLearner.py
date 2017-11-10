@@ -159,9 +159,10 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp2[:,5:-5,5:-5,], pred_edges[s][:,5:-5,5:-5,], mode='l2'))
-                        smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
+                            # self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
+                            self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
+                        # smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
+                        #     self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
                     else:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                             self.compute_smooth_loss(pred_disp2))
@@ -189,8 +190,8 @@ class SfMLearner(object):
                 if opt.normal_smooth_weight > 0:
                     normal_smooth_loss += tf.multiply(opt.normal_smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_normal[:,3:-3,3:-3,:], ))
-                        # self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
-                        self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
+                        self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
+                        # self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
@@ -492,6 +493,41 @@ class SfMLearner(object):
 
         return smoothness_loss
 
+    def compute_smooth_loss_wedge_3d(self, disp, edge, intrinsics, alpha=10.0):
+
+        def gradient(pred):
+            D_dy = pred[:, 1:, :, :] - pred[:, :-1, :, :]
+            D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
+            return D_dx, D_dy
+        batch, height, width = disp.get_shape().as_list()[:3]
+        fx, fy, cx, cy = intrinsics[:,0], intrinsics[:,1], intrinsics[:,2], intrinsics[:,3]
+        fx = tf.tile(fx[:,None,None,None], [1, height, width-1, 1])
+        fy = tf.tile(fy[:,None,None,None], [1, height-1, width, 1])
+        cx = tf.tile(cx[:,None,None,None], [1, height, width-1, 1])
+        cy = tf.tile(cy[:,None,None,None], [1, height-1, width, 1])
+
+        disp_grad_y, disp_grad_x = disp[:,1:,:,:]-disp[:,:-1,:,:], disp[:,:,1:,:]-disp[:,:,:-1,:]
+        
+        x, y = tf.meshgrid(np.arange(width), np.arange(height))
+        x = tf.cast(tf.tile(x[None,:,:,None],[batch,1,1,1]),tf.float32)
+        y = tf.cast(tf.tile(y[None,:,:,None],[batch,1,1,1]), tf.float32)
+        x1, y1 = x[:,:,:-1,:], y[:,:-1,:,:]
+        x2, y2 = x[:,:,1:,:], y[:,1:,:,:]
+
+        disp_grad_y_3d = disp_grad_y/(tf.sigmoid(((y2-cy)*disp[:,1:,:,:]-(y1-cy)*disp[:,:-1,:,:])/fy-1.0)*2.0+1.0)
+        disp_grad_x_3d = disp_grad_x/(tf.sigmoid(((x2-cx)*disp[:,:,1:,:]-(x1-cx)*disp[:,:,:-1,:])/fx-1.0)*2.0+1.0)
+        dx2, dxdy = gradient(disp_grad_x_3d)
+        dydx, dy2 = gradient(disp_grad_y_3d)
+
+        weight_x = tf.exp(-1*alpha*tf.abs(edge))
+        weight_y = tf.exp(-1*alpha*tf.abs(edge))
+
+        smoothness_loss = tf.reduce_mean(tf.clip_by_value(dx2 * weight_x[:,:,1:-1,:], 0.0, 10.0)) + \
+                          tf.reduce_mean(tf.clip_by_value(dy2 * weight_y[:,1:-1,:,:], 0.0, 10.0))
+
+        return smoothness_loss
+
+
     def compute_smooth_loss_wedge_noexp(self, disp, edge):
         ## in edge, 1 represents edge, disp and edge are rank 3 vars
 
@@ -685,7 +721,7 @@ class SfMLearner(object):
                                 ## normal evaluation
                                 if mode == "kitti":
                                     pred_normals, gt_normals = load_normals(test_result_normal, mode, normal_gt_path, test_fn)
-                                    dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals)
+                                    dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals, mode)
 
                                 with open("../eval/"+opt.eval_txt,"a") as write_file:
                                     write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
