@@ -16,12 +16,13 @@ from utils import *
 def test_image(filename):
 
     mode = 'depth'
-    img_height=128
-    img_width=416
-    # ckpt_file = 'models/model-145248'
+    img_height=256
+    img_width=832
+    ckpt_file = 'models/model-145248'
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/sfmlearner/chpts/model.latest'
-    ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt/depth2normal_test/model-62875'
-    img_path = "/home/zhenheng/Datasets_ssd/Datasets/kitti/training/image_2/"
+    # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt/depth2normal_test/model-62875'
+    # img_path = "/home/zhenheng/Datasets_ssd/Datasets/kitti/training/image_2/"
+    img_path = "/home/zhenheng/works/"
     # I = scipy.misc.imread('misc/sample.png')
     I = scipy.misc.imread(img_path+filename)
     I = scipy.misc.imresize(I, (img_height, img_width))
@@ -30,11 +31,11 @@ def test_image(filename):
     sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()])
-
+    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333) 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         saver.restore(sess, ckpt_file)
-        pred = sfm.inference(I[None,:,:,:], sess, mode=mode)
+        pred = sfm.inference(I[None,:,:,:], intrinsic, sess, mode=mode)
     # np.save("./visualization.npy",normalize_depth_for_display(pred['depth'][0,:,:,0]))
     # plt.figure()
     # plt.imshow(normalize_depth_for_display(pred['depth'][0,:,:,0]))
@@ -118,7 +119,8 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             # scipy.misc.imsave("./test_eval/%06d_10.png" % i, normalize_depth_for_display(pred['depth'][0,:,:,0]))
             pred_normals_test.append(pred_normal_np)
             # print(pred['edges'][0].shape)
-            scipy.misc.imsave("../eval/edge_asap_cs/%03d.jpg" % i, np.squeeze(pred['edges'][0]))
+            # scipy.misc.imsave("../eval/edge_asap_cs/%03d.jpg" % i, np.squeeze(pred['edges'][0]))
+            scipy.misc.imsave("/home/zhenheng/datasets/cityscapes/sequences_vis/sequence10/edge/%03d.jpg" % i, np.squeeze(pred['edges'][0])[:-6,:,])
 
     if eval_bool:
         gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)
@@ -151,7 +153,8 @@ if __name__ == "__main__":
                 for line in f:
                     filelist.append("/home/zhenheng/datasets/kitti/"+line.rstrip())
         elif args.split == "cs":
-            test_file_list = "/home/zhenheng/datasets/cityscapes/test_files_"+args.split+".txt"
+            # test_file_list = "/home/zhenheng/datasets/cityscapes/test_files_"+args.split+".txt"
+            test_file_list = "/home/zhenheng/datasets/cityscapes/sequences_vis/sequence10/test_files_sequence10.txt"
             with open(test_file_list) as f:
                 for line in f:
                     filelist.append("/home/zhenheng/datasets/cityscapes/"+line.rstrip())
@@ -162,5 +165,5 @@ if __name__ == "__main__":
                     filelist.append("/home/zhenheng/datasets/make3d/test_imgs/"+line.rstrip())
         test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
     else:
-        filename = "000001_10.png"
+        filename = "example_detect.png"
         test_image(filename)
