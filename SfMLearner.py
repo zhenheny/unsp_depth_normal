@@ -9,8 +9,8 @@ import scipy.misc as sm
 import tensorflow as tf
 from nets import *
 from utils import *
-sys.path.insert(0, "../depth2normal/")
-sys.path.append("../eval")
+sys.path.insert(0, "./depth2normal/")
+sys.path.append("./eval")
 from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *

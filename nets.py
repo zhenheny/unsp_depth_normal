@@ -75,8 +75,24 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
                 mask3 = None
                 mask4 = None
 
+            ## Dense motion specific layers
+            if do_dm:
+                with tf.variable_scope('dm'):
+                    upcnv5 = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5')
+
+                    upcnv4 = slim.conv2d_transpose(upcnv5, 128, [3, 3], stride=2, scope='upcnv4')
+
+                    upcnv3 = slim.conv2d_transpose(upcnv4, 64,  [3, 3], stride=2, scope='upcnv3')
+                    
+                    upcnv2 = slim.conv2d_transpose(upcnv3, 32,  [5, 5], stride=2, scope='upcnv2')
+
+                    upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
+                    dm1 = slim.conv2d(upcnv1, num_source * 6, [7, 7], stride=1, scope='dm1', 
+                        normalizer_fn=None, activation_fn=None)
+ 
+
             end_points = utils.convert_collection_to_dict(end_points_collection)
-            return pose_final, [mask1, mask2, mask3, mask4], end_points
+            return pose_final, [mask1, mask2, mask3, mask4], dm1, end_points
 
 def disp_net(tgt_image, is_training=True, do_edge=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
