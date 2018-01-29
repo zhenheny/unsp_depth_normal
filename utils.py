@@ -94,7 +94,7 @@ def euler2mat(z, y, x):
     rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
     return rotMat
 
-def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
+def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, target_image):
     """Inverse warp a source image to the target image plane
        Part of the code modified from  
        https://github.com/tensorflow/models/blob/master/transformer/spatial_transformer.py
@@ -102,6 +102,7 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
         img: the source image (where to sample pixels) -- [B, H, W, 3]
         depth: depth map of the target image -- [B, H, W]
         pose: 6DoF pose parameters from target to source -- [B, 6]
+        dense_motion: dense_motion_map for each source image -- [B, H, W, 3]
         intrinsics: camera intrinsic matrix -- [B, 3, 3]
         intrinsics_inv: inverse of the intrinsic matrix -- [B, 3, 3]
     Returns:
@@ -122,7 +123,7 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
 
     def _cam2pixel(cam_coords, proj_c2p):
         """Transform coordinates in the camera frame to the pixel frame"""
-        pcoords = tf.matmul(proj_c2p, cam_coords)
+        pcoords = tf.matmul(proj_c2p, cam_coords) #[B, 4, 4], [B, 4, HW]
         X = tf.slice(pcoords, [0, 0, 0], [-1, 1, -1])
         Y = tf.slice(pcoords, [0, 1, 0], [-1, 1, -1])
         Z = tf.slice(pcoords, [0, 2, 0], [-1, 1, -1])
@@ -523,9 +524,12 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
     grid = _meshgrid_abs(img_height, img_width)
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
-    cam_coords = _pixel2cam(depth, grid, intrinsics_inv)
+    dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
+    dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
+    cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
+    shifted_cam_coords = cam_coords+dense_motion
     ones = tf.ones([batch_size, 1, img_height*img_width])
-    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+    cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
     if len(pose.get_shape().as_list()) == 3:
         pose_mat = pose
     else:
@@ -785,11 +789,11 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     dims = tf.shape(img)
     batch_size, img_height, img_width = dims[0], dims[1], dims[2]
     depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
-    grid = _meshgrid_abs(img_height, img_width)
-    grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
-    cam_coords = _pixel2cam(depth, grid, intrinsics_inv)
+    grid = _meshgrid_abs(img_height, img_width) # shape of [3, H*W]
+    grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1]) # shape of [B, 3, H*W]
+    cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
     ones = tf.ones([batch_size, 1, img_height*img_width])
-    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1) # [B, 4, HW]
     pose_mat = _pose_vec2mat(pose)
     # pose_mat = pose
 
@@ -798,7 +802,7 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     hom_filler = tf.tile(hom_filler, [batch_size, 1, 1])
     intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
     intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
-    proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat)
+    proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat) # shape [B, 4, 4]
     src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords, 
                                 [batch_size, 2, img_height, img_width])

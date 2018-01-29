@@ -79,10 +79,11 @@ class SfMLearner(object):
             pred_depth = [1./d for d in pred_disp]
 
         with tf.name_scope("pose_and_explainability_prediction"):
-            pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
+            pred_poses, pred_exp_logits, dense_motion_maps, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
                              src_image_stack, 
-                             do_exp=(opt.explain_reg_weight > 0))
+                             do_exp=(opt.explain_reg_weight > 0),
+                             do_dm=(opt.dense_motion_weight > 0))
 
         with tf.name_scope("compute_loss"):
             pixel_loss = 0
@@ -91,6 +92,7 @@ class SfMLearner(object):
             normal_smooth_loss = 0
             img_grad_loss = 0
             edge_loss = 0
+            dm_loss = 0
             tgt_image_all = []
             src_image_stack_all = []
             proj_image_stack_all = []
@@ -217,6 +219,7 @@ class SfMLearner(object):
                         # pred_depth2, 
                         # pred_depth[s], 
                         pred_poses[:,i,:], ## [batchsize, num_source, 6] 
+                        dense_motion_maps[s][:,:,:,3*i:3*(i+1)], ## [batchsize, width, height, num_source*3]
                         proj_cam2pix[:,s,:,:],  ## [batchsize, scale, 3, 3]
                         proj_pix2cam[:,s,:,:],
                         curr_tgt_image)
@@ -257,6 +260,13 @@ class SfMLearner(object):
                     #     proj_pix2cam[:,s,:,:])
                     # curr_proj_error += tf.abs(curr_proj_image - curr_tgt_image)
                     # curr_proj_error /= 2.0
+
+                    # Dense_motion loss, dis-encourage dense motion
+                    if opt.dense_motion_weight > 0:
+                        ref_dm_map = self.get_reference_explain_mask(s)[:,:,:,0]
+                        ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,3])
+                        dm_loss += opt.dense_motion_weight/(2**s) *\
+                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_mask))
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
@@ -324,7 +334,7 @@ class SfMLearner(object):
                 flyout_map_all.append(flyout_map)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
-            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss + edge_loss
+            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss + edge_loss + dm_loss
         
 
         with tf.name_scope("train_op"):
