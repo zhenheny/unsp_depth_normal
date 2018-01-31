@@ -161,8 +161,8 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            # self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
-                            self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
+                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
+                            # self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
                         # smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         #     self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
                     else:
@@ -266,7 +266,7 @@ class SfMLearner(object):
                         ref_dm_map = self.get_reference_explain_mask(s)[:,:,:,0]
                         ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,3])
                         dm_loss += opt.dense_motion_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_mask))
+                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
