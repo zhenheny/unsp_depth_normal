@@ -102,7 +102,7 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
         img: the source image (where to sample pixels) -- [B, H, W, 3]
         depth: depth map of the target image -- [B, H, W]
         pose: 6DoF pose parameters from target to source -- [B, 6]
-        dense_motion: dense_motion_map for each source image -- [B, H, W, 3]
+        dense_motion: dense_motion_map for each source image -- [B, H, W, 6]
         intrinsics: camera intrinsic matrix -- [B, 3, 3]
         intrinsics_inv: inverse of the intrinsic matrix -- [B, 3, 3]
     Returns:
@@ -156,11 +156,11 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
          Reference: https://github.com/pulkitag/pycaffe-utils/blob/master/rot_utils.py#L174
 
         Args:
-            z: rotation angle along z axis (in radians) -- size = [B, N]
-            y: rotation angle along y axis (in radians) -- size = [B, N]
-            x: rotation angle along x axis (in radians) -- size = [B, N]
+            z: rotation angle along z axis (in radians) -- size = [B,x,x,N]
+            y: rotation angle along y axis (in radians) -- size = [B,x,x,N]
+            x: rotation angle along x axis (in radians) -- size = [B,x,x,N]
         Returns:
-            Rotation matrix corresponding to the euler angles -- size = [B, N, 3, 3]
+            Rotation matrix corresponding to the euler angles -- size = [B,x,x,N,3,3]
         """
         B = tf.shape(z)[0]
         N = 1
@@ -168,34 +168,35 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
         y = tf.clip_by_value(y, -np.pi, np.pi)
         x = tf.clip_by_value(x, -np.pi, np.pi)
 
-        # Expand to B x N x 1 x 1
+        # Expand to B x x N 1 1
         z = tf.expand_dims(tf.expand_dims(z, -1), -1)
         y = tf.expand_dims(tf.expand_dims(y, -1), -1)
         x = tf.expand_dims(tf.expand_dims(x, -1), -1)
 
-        zeros = tf.zeros([B, N, 1, 1])
-        ones  = tf.ones([B, N, 1, 1])
+        shapes = z.get_shape().as_list()[:-3] # [B,H,W]
+        zeros = tf.zeros(shapes+[N, 1, 1])
+        ones  = tf.ones(shapes+[N, 1, 1])
 
         cosz = tf.cos(z)
         sinz = tf.sin(z)
-        rotz_1 = tf.concat([cosz, -sinz, zeros], axis=3)
-        rotz_2 = tf.concat([sinz,  cosz, zeros], axis=3)
-        rotz_3 = tf.concat([zeros, zeros, ones], axis=3)
-        zmat = tf.concat([rotz_1, rotz_2, rotz_3], axis=2)
+        rotz_1 = tf.concat([cosz, -sinz, zeros], axis=-1) # [B,x,x,N,1,3]
+        rotz_2 = tf.concat([sinz,  cosz, zeros], axis=-1)
+        rotz_3 = tf.concat([zeros, zeros, ones], axis=-1)
+        zmat = tf.concat([rotz_1, rotz_2, rotz_3], axis=-2) # [B,x,x,N,3,3]
 
         cosy = tf.cos(y)
         siny = tf.sin(y)
-        roty_1 = tf.concat([cosy, zeros, siny], axis=3)
-        roty_2 = tf.concat([zeros, ones, zeros], axis=3)
-        roty_3 = tf.concat([-siny,zeros, cosy], axis=3)
-        ymat = tf.concat([roty_1, roty_2, roty_3], axis=2)
+        roty_1 = tf.concat([cosy, zeros, siny], axis=-1)
+        roty_2 = tf.concat([zeros, ones, zeros], axis=-1)
+        roty_3 = tf.concat([-siny,zeros, cosy], axis=-1)
+        ymat = tf.concat([roty_1, roty_2, roty_3], axis=-2)
 
         cosx = tf.cos(x)
         sinx = tf.sin(x)
-        rotx_1 = tf.concat([ones, zeros, zeros], axis=3)
-        rotx_2 = tf.concat([zeros, cosx, -sinx], axis=3)
-        rotx_3 = tf.concat([zeros, sinx, cosx], axis=3)
-        xmat = tf.concat([rotx_1, rotx_2, rotx_3], axis=2)
+        rotx_1 = tf.concat([ones, zeros, zeros], axis=-1)
+        rotx_2 = tf.concat([zeros, cosx, -sinx], axis=-1)
+        rotx_3 = tf.concat([zeros, sinx, cosx], axis=-1)
+        xmat = tf.concat([rotx_1, rotx_2, rotx_3], axis=-2)
 
         rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
         return rotMat
@@ -218,6 +219,24 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
         filler = tf.tile(filler, [batch_size, 1, 1])
         transform_mat = tf.concat([rot_mat, translation], axis=2)
         transform_mat = tf.concat([transform_mat, filler], axis=1)
+        return transform_mat
+
+    def _dm_vec2mat(vec):
+        ## input of dense motion map is of shape [B,H,W,6]
+        ## return transformation matrix -- [B,H,W,4,4]
+        height = vec.get_shape().as_list()[1]
+        width = vec.get_shape().as_list()[2]
+        translation = tf.slice(vec, [0,0,0,0], [-1,-1,-1,3])
+        translation = tf.expand_dims(translation, -1) # [B,W,H,3,1]
+        rx = tf.slice(vec, [0,0,0,3], [-1,-1,-1,1])
+        ry = tf.slice(vec, [0,0,0,4], [-1,-1,-1,1])
+        rz = tf.slice(vec, [0,0,0,5], [-1,-1,-1,1])
+        rot_mat = _euler2mat(rz, ry, rx) # [B,W,H,1,3,3]
+        rot_mat = tf.squeeze(rot_mat, squeeze_dims=[-3])
+        filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1,1,1,1,4])
+        filler = tf.tile(filler, [batch_size,height,width,1,1]) # [B,H,W,1,4]
+        transform_mat = tf.concat([rot_mat, translation], axis=4) #[B,H,W,3,4]
+        transform_mat = tf.concat([transform_mat, filler], axis=3)
         return transform_mat
 
     def _interpolate_ms(im, x, y, out_size, target, name='_interpolate'):
@@ -524,16 +543,20 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
     grid = _meshgrid_abs(img_height, img_width)
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
-    dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
-    dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
     cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
-    shifted_cam_coords = cam_coords+dense_motion
     ones = tf.ones([batch_size, 1, img_height*img_width])
-    cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1) # [B, 4, HW]
     if len(pose.get_shape().as_list()) == 3:
         pose_mat = pose
     else:
         pose_mat = _pose_vec2mat(pose)
+
+    # First transform the cam_coords_hom with the dense motion map
+    dm_mat = _dm_vec2mat(dense_motion) # [B,H,W,4,4]
+    dm_mat = tf.reshape(dm_mat, [batch_size,img_height*img_width,4,4]) # [B,HW,4,4]
+    cam_coords_transformed = tf.expand_dims(tf.transpose(cam_coords_hom,[0,2,1]), -1) #[B,HW,4,1]
+    cam_coords_transformed = tf.matmul(dm_mat,cam_coords_transformed)
+    cam_coords_transformed = tf.transpose(tf.squeeze(cam_coords_transformed), [0,2,1])
 
     # Get projection matrix for tgt camera frame to source pixel frame
     hom_filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])
@@ -541,9 +564,9 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
     intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
     proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat)
-    src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
+    src_pixel_coords = _cam2pixel(cam_coords_transformed, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords, 
-                                [batch_size, 2, img_height, img_width])
+                                [batch_size, 2, img_height, img_width]) # [B,2,H,W]
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
     projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
     
@@ -801,7 +824,7 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     hom_filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])
     hom_filler = tf.tile(hom_filler, [batch_size, 1, 1])
     intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
-    intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
+    intrinsics = tf.concat([intrinsics, hom_filler], axis=1) # [B, 4, 4]
     proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat) # shape [B, 4, 4]
     src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords, 

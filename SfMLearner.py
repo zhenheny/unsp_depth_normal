@@ -161,8 +161,8 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            # self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
-                            self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
+                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
+                            # self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
                         # smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         #     self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
                     else:
@@ -219,7 +219,7 @@ class SfMLearner(object):
                         # pred_depth2, 
                         # pred_depth[s], 
                         pred_poses[:,i,:], ## [batchsize, num_source, 6] 
-                        dense_motion_maps[s][:,:,:,3*i:3*(i+1)], ## [batchsize, width, height, num_source*3]
+                        dense_motion_maps[s][:,:,:,6*i:6*(i+1)], ## [batchsize, width, height, num_source*6]
                         proj_cam2pix[:,s,:,:],  ## [batchsize, scale, 3, 3]
                         proj_pix2cam[:,s,:,:],
                         curr_tgt_image)
@@ -264,9 +264,11 @@ class SfMLearner(object):
                     # Dense_motion loss, dis-encourage dense motion
                     if opt.dense_motion_weight > 0:
                         ref_dm_map = self.get_reference_explain_mask(s)[:,:,:,0]
-                        ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,3])
+                        ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,6])
+                        # ref_dm_map_print = tf.Print(ref_dm_map, [ref_dm_map, tf.shape(ref_dm_map), tf.reduce_max(ref_dm_map), ' ref_dm_map'])
+                        # dense_motion_map_print = tf.Print(dense_motion_maps[s], [dense_motion_maps[s][:,:,:,3*i:3*(i+1)], tf.reduce_max(dense_motion_maps[s]), tf.reduce_min(dense_motion_maps[s]), 'dense_motion_maps'])
                         dm_loss += opt.dense_motion_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_mask))
+                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,6*i:6*(i+1)])-ref_dm_map))
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
@@ -363,6 +365,7 @@ class SfMLearner(object):
         self.exp_loss = exp_loss
         self.smooth_loss = smooth_loss
         self.edge_loss = edge_loss
+        self.dm_loss = dm_loss
         self.tgt_image_all = tgt_image_all
         self.src_image_stack_all = src_image_stack_all
         self.proj_image_stack_all = proj_image_stack_all
@@ -370,6 +373,7 @@ class SfMLearner(object):
         self.exp_mask_stack_all = exp_mask_stack_all
         self.flyout_map_all = flyout_map_all
         self.pred_edges = pred_edges
+        self.dense_motion_maps = dense_motion_maps
 
     def get_reference_explain_mask(self, downscaling):
         opt = self.opt
@@ -564,6 +568,7 @@ class SfMLearner(object):
         tf.summary.scalar("pixel_loss", self.pixel_loss)
         tf.summary.scalar("smooth_loss", self.smooth_loss)
         tf.summary.scalar("exp_loss", self.exp_loss)
+        tf.summary.scalar("dm_loss", self.dm_loss)
         if opt.edge_mask_weight > 0:
             tf.summary.scalar("edge_loss", self.edge_loss)
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
@@ -590,6 +595,7 @@ class SfMLearner(object):
             tf.summary.image('scale%d_proj_error_%d' % (s, i),
                 tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
             tf.summary.image('scale%d_flyout_mask_%d' % (s,i), self.flyout_map_all[s][:,:,:,i*3:(i+1)*3])
+            tf.summary.image('scale%d_dm_map_%d' % (s,i), self.dense_motion_maps[s][:,:,:,i*3:(i+1)*3])
             # tf.summary.image('scale%d_src_error_%d' % (s, i),
             #     self.deprocess_image(tf.abs(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3] - self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3])))
             # tf.summary.histogram("tx", self.pred_poses[:,:,0])
@@ -621,7 +627,7 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if "/edge/" not in var.name]
+        load_saver_vars = [var for var in tf.model_variables() if ("/edge/" not in var.name and "/dm/" not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
