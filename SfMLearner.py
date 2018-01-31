@@ -621,7 +621,7 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if "/edge/" not in var.name]
+        load_saver_vars = [var for var in tf.model_variables() if ("/edge/" not in var.name and "/dm/" not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
