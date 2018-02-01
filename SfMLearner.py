@@ -363,6 +363,7 @@ class SfMLearner(object):
         self.exp_loss = exp_loss
         self.smooth_loss = smooth_loss
         self.edge_loss = edge_loss
+        self.dm_loss = dm_loss
         self.tgt_image_all = tgt_image_all
         self.src_image_stack_all = src_image_stack_all
         self.proj_image_stack_all = proj_image_stack_all
@@ -370,6 +371,7 @@ class SfMLearner(object):
         self.exp_mask_stack_all = exp_mask_stack_all
         self.flyout_map_all = flyout_map_all
         self.pred_edges = pred_edges
+        self.dense_motion_maps = dense_motion_maps
 
     def get_reference_explain_mask(self, downscaling):
         opt = self.opt
@@ -566,6 +568,8 @@ class SfMLearner(object):
         tf.summary.scalar("exp_loss", self.exp_loss)
         if opt.edge_mask_weight > 0:
             tf.summary.scalar("edge_loss", self.edge_loss)
+        if opt.dense_motion_weight > 0:
+            tf.summary.scalar("dm_loss", self.dm_loss)
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
         tf.summary.image("pred_disp2", self.pred_disps2[0])
         # for s in range(opt.num_scales):
@@ -590,6 +594,7 @@ class SfMLearner(object):
             tf.summary.image('scale%d_proj_error_%d' % (s, i),
                 tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
             tf.summary.image('scale%d_flyout_mask_%d' % (s,i), self.flyout_map_all[s][:,:,:,i*3:(i+1)*3])
+            tf.summary.image('scale%d_dense_motion_%d' % (s,i), self.dense_motion_maps[s][:,:,:,i*3:(i+1)*3])
             # tf.summary.image('scale%d_src_error_%d' % (s, i),
             #     self.deprocess_image(tf.abs(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3] - self.src_image_stack_all[s][:, :, :, i*3:(i+1)*3])))
             # tf.summary.histogram("tx", self.pred_poses[:,:,0])
@@ -621,7 +626,7 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if ("/edge/" not in var.name and "/dm/" not in var.name)]
+        load_saver_vars = [var for var in tf.model_variables() if ("/dm/" not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
