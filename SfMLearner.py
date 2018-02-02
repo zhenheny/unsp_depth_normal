@@ -266,7 +266,9 @@ class SfMLearner(object):
                         ref_dm_map = self.get_reference_explain_mask(s)[:,:,:,0]
                         ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,3])
                         dm_loss += opt.dense_motion_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
+                                self.compute_smooth_loss_wedge(dense_motion_maps[s][:,:,:,3*i:3*(i+1)], pred_edges[s], mode='l2', alpha=0.1)
+                        # dm_loss += opt.dense_motion_weight/(2**s) *\
+                        #         tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
