@@ -269,6 +269,8 @@ class SfMLearner(object):
                         #         self.compute_smooth_loss_wedge(dense_motion_maps[s][:,:,:,3*i:3*(i+1)], pred_edges[s], mode='l2', alpha=0.1)
                         dm_loss += opt.dense_motion_weight/(2**s) *\
                                 tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
+                        dm_loss += opt.dense_motion_weight/(2**s) *\
+                                self.compute_smooth_loss(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
@@ -340,7 +342,7 @@ class SfMLearner(object):
         
 
         with tf.name_scope("train_op"):
-            train_vars = [var for var in tf.trainable_variables()]
+            train_vars = [var for var in tf.trainable_variables() if "/dm/" in var.name]
             optim = tf.train.AdamOptimizer(opt.learning_rate, opt.beta1)
             self.grads_and_vars = optim.compute_gradients(total_loss, 
                                                           var_list=train_vars)
@@ -628,7 +630,7 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if ("/edge/" not in var.name and "/dm/" not in var.name)]
+        load_saver_vars = [var for var in tf.model_variables() if ("/dm/" not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
