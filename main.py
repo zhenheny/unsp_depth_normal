@@ -21,18 +21,20 @@ def test_image(filename):
     ckpt_file = 'models/model-145248'
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/sfmlearner/chpts/model.latest'
     # ckpt_file = '/home/zhenheng/Datasets_4T/unsp_depth_normal/d2nn2d_1pt/depth2normal_test/model-62875'
+    ckpt_file = '/home/zhenheng/Datasets_4T/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-100002'
     # img_path = "/home/zhenheng/Datasets_ssd/Datasets/kitti/training/image_2/"
-    img_path = "/home/zhenheng/works/"
+    img_path = "/home/zhenheng/Documents/"
     # I = scipy.misc.imread('misc/sample.png')
     I = scipy.misc.imread(img_path+filename)
     I = scipy.misc.imresize(I, (img_height, img_width))
 
     sfm = SfMLearner()
-    sfm.setup_inference(img_height, img_width, mode=mode)
+    with tf.variable_scope("training"):
+        sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()])
     intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333) 
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4) 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         saver.restore(sess, ckpt_file)
         pred = sfm.inference(I[None,:,:,:], intrinsic, sess, mode=mode)
@@ -44,7 +46,7 @@ def test_image(filename):
     # plt.subplot(1,2,1); plt.imshow(I)
     # plt.subplot(1,2,2); plt.imshow(normalize_depth_for_display(pred['depth'][0,:,:,0]))
     # plt.savefig("./visualization.pdf", bbox_inches="tight")
-    scipy.misc.imsave("./visualize_2.png", normalize_depth_for_display(pred['depth'][0,:,:,0]))
+    scipy.misc.imsave("./visualize_depth.png", normalize_depth_for_display(pred['depth'][0,:,:,0]))
     # np.save("./1.npy", pred['disp'])
 
 def test_filelist(filelist, split, eval_bool, ckpt_file):
@@ -166,4 +168,5 @@ if __name__ == "__main__":
         test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
     else:
         filename = "example_detect.png"
+        filename = '2.png'
         test_image(filename)

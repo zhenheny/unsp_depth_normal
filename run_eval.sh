@@ -1,4 +1,5 @@
-sudo python3 main.py --split cs \
+sudo python3 -m pdb main.py --split cs \
+	--type img \
 	--ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-170002 \
 	--gpu_id 1
 	# /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_2loss_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-150002 \
