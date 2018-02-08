@@ -8,6 +8,7 @@ import os
 
 flags = tf.app.flags
 flags.DEFINE_string("dataset_dir", "", "Dataset directory")
+flags.DEFINE_string("depth_dir", "", "Depth image directory")
 flags.DEFINE_string("checkpoint_dir", "./checkpoints/", "Directory name to save the checkpoints")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam")
 flags.DEFINE_float("beta1", 0.9, "Momentum term of adam")

@@ -32,7 +32,7 @@ class SfMLearner(object):
             # seed = 654
 
             # Load the list of training files into queues
-            file_list = self.format_file_list(opt.dataset_dir, 'train')
+            file_list = self.format_file_list(opt.dataset_dir, opt.depth_dir, 'train_with_velo')
             image_paths_queue = tf.train.string_input_producer(
                 file_list['image_file_list'], 
                 seed=seed, 
@@ -41,14 +41,25 @@ class SfMLearner(object):
                 file_list['cam_file_list'], 
                 seed=seed, 
                 shuffle=False)
+            depth_paths_queue = tf.train.string_input_producer(
+                file_list['depth_file_list'],
+                seed=seed,
+                shuffle=False)
 
-            # Load images
+            # Load images and depth images
             img_reader = tf.WholeFileReader()
             _, image_contents = img_reader.read(image_paths_queue)
+            _, depth_contents = img_reader.read(depth_paths_queue)
             image_seq = tf.image.decode_jpeg(image_contents)
+            depth_seq = tf.image.decode_png(depth_contents)
+            depth_seq = tf.image.resize_images(depth_seq,
+                                [opt.img_height, opt.img_width])
             image_seq = self.preprocess_image(image_seq)
+            depth_seq = tf.image.convert_image_dtype(depth_seq, dtype=tf.float32)
             tgt_image, src_image_stack = \
                 self.unpack_image_sequence(image_seq)
+            depth_seq.set_shape([opt.img_height, 
+                                   opt.img_width,1])
 
             # Load camera intrinsics
             cam_reader = tf.TextLineReader()
@@ -64,19 +75,21 @@ class SfMLearner(object):
                 raw_cam_mat, opt.num_scales)
 
             # Form training batches
-            src_image_stack, tgt_image, proj_cam2pix, proj_pix2cam = \
+            src_image_stack, tgt_image, proj_cam2pix, proj_pix2cam, depth_seq = \
                     tf.train.batch([src_image_stack, tgt_image, proj_cam2pix, 
-                                    proj_pix2cam], batch_size=opt.batch_size)
+                                    proj_pix2cam, depth_seq], batch_size=opt.batch_size)
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
             print ("src_image_stack shape")
             print (src_image_stack.get_shape().as_list())
+            print ("depth_seq shape")
+            print (depth_seq.get_shape().as_list())
 
         ## depth prediction network
-        with tf.name_scope("depth_prediction"):
-            pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
-                                        do_edge=(opt.edge_mask_weight > 0))
-            pred_depth = [1./d for d in pred_disp]
+        # with tf.name_scope("depth_prediction"):
+        #     pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
+        #                                 do_edge=(opt.edge_mask_weight > 0))
+        #     pred_depth = [1./d for d in pred_disp]
 
         with tf.name_scope("pose_and_explainability_prediction"):
             pred_poses, pred_exp_logits, dense_motion_maps, pose_exp_net_endpoints = \
@@ -100,6 +113,7 @@ class SfMLearner(object):
             exp_mask_stack_all = []
             pred_normals = []
             pred_disps2 = []
+            pred_depths = []
             flyout_map_all = []
             edge_mask_all = []
             depth_inverse = False
@@ -114,11 +128,13 @@ class SfMLearner(object):
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])                
                 curr_src_image_stack = tf.image.resize_bilinear(src_image_stack, 
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
+                curr_depth_image = tf.image.resize_bilinear(depth_seq,
+                    [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
 
                 ## depth2normal and normal2depth at each scale level
                 intrinsic_mtx = proj_cam2pix[:,s,:,:]
                 intrinsics = tf.concat([tf.expand_dims(intrinsic_mtx[:,0,0],1), tf.expand_dims(intrinsic_mtx[:,1,1],1), tf.expand_dims(intrinsic_mtx[:,0,2],1), tf.expand_dims(intrinsic_mtx[:,1,2],1)], 1)
-                pred_depth_tensor = tf.squeeze(pred_depth[s])
+                pred_depth_tensor = tf.squeeze(curr_depth_image)
 
                 pred_normal = depth2normal_layer_batch(pred_depth_tensor, intrinsics, depth_inverse)
 
@@ -126,11 +142,10 @@ class SfMLearner(object):
                 pred_depth2 = tf.expand_dims(pred_depth2, -1)
                 # normal depth2 to avoid corner case of preddepth2=0
                 # pred_disp2 = 1.0 / (pred_depth2 - tf.reduce_min(pred_depth2) + 1e-2)
-                pred_disp2 = 1.0 / pred_depth2
-
-                # # print (pred_depth2.shape)
+                pred_disp2 = 1.0 / (pred_depth2+1e-3)
 
                 # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
+                pred_depths.append(curr_depth_image)
                 pred_normals.append(pred_normal)
                 pred_disps2.append(pred_disp2)
 
@@ -192,8 +207,8 @@ class SfMLearner(object):
                 if opt.normal_smooth_weight > 0:
                     normal_smooth_loss += tf.multiply(opt.normal_smooth_weight/(2**s), \
                         # self.compute_edge_aware_smooth_loss(pred_normal[:,3:-3,3:-3,:], ))
-                        self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
-                        # self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
+                        # self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
+                        self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
 
                 curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                 curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
@@ -214,7 +229,7 @@ class SfMLearner(object):
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
                     curr_proj_image, curr_flyout_map= inverse_warp(
                         curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                        pred_depth2, 
+                        curr_depth_image, 
                         # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
                         # pred_depth2, 
                         # pred_depth[s], 
@@ -225,6 +240,7 @@ class SfMLearner(object):
                         curr_tgt_image)
                     # curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
+                    curr_proj_error_crop = curr_proj_error[:,int(opt.img_height/(2**s)*0.376):,:,:]
 
                     # curr_proj_image_grad_x = inverse_warp(
                     #     curr_src_image_grad_x[:,:,:,3*i:3*(i+1)], 
@@ -267,10 +283,12 @@ class SfMLearner(object):
                         ref_dm_map = tf.tile(ref_dm_map[:,:,:,None], [1,1,1,3])
                         # dm_loss += opt.dense_motion_weight/(2**s) *\
                         #         self.compute_smooth_loss_wedge(dense_motion_maps[s][:,:,:,3*i:3*(i+1)], pred_edges[s], mode='l2', alpha=0.1)
+                        dm_shift = dense_motion_maps[s][:,:,:,3*i:3*(i+1)]-ref_dm_map
+                        dm_shift_crop = dm_shift[:,int(opt.img_height/(2**s)*0.376):,:,:]
                         dm_loss += opt.dense_motion_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
-                        dm_loss += opt.dense_motion_weight/(2**s) *\
-                                self.compute_smooth_loss(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])
+                                tf.reduce_mean(tf.square(tf.squeeze(dm_shift_crop)))
+                        # dm_loss += opt.dense_motion_weight/(2**s) *\
+                        #         self.compute_smooth_loss(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
@@ -280,7 +298,7 @@ class SfMLearner(object):
                         pixel_loss += tf.reduce_mean(curr_proj_error * \
                             (1.0 - pred_edges[s]))
                     else:
-                        pixel_loss += tf.reduce_mean(curr_proj_error) 
+                        pixel_loss += tf.reduce_mean(curr_proj_error_crop) 
 
                     if opt.img_grad_weight > 0:
                         curr_proj_image_grad_x, curr_proj_image_grad_y = self.gradient(curr_proj_image[:, :-2, 1:-1, :])
@@ -338,11 +356,11 @@ class SfMLearner(object):
                 flyout_map_all.append(flyout_map)
                 if opt.explain_reg_weight > 0:
                     exp_mask_stack_all.append(exp_mask_stack)
-            total_loss = pixel_loss + smooth_loss + exp_loss + normal_smooth_loss + img_grad_loss + edge_loss + dm_loss
+            total_loss = pixel_loss + smooth_loss + normal_smooth_loss + dm_loss
         
 
         with tf.name_scope("train_op"):
-            train_vars = [var for var in tf.trainable_variables() if "/dm/" in var.name]
+            train_vars = [var for var in tf.trainable_variables()]
             optim = tf.train.AdamOptimizer(opt.learning_rate, opt.beta1)
             self.grads_and_vars = optim.compute_gradients(total_loss, 
                                                           var_list=train_vars)
@@ -355,8 +373,8 @@ class SfMLearner(object):
 
         # Collect tensors that are useful later (e.g. tf summary)
 
-        self.pred_depth = pred_depth
-        self.pred_disp = pred_disp
+        self.pred_depths = pred_depths
+        # self.pred_disp = pred_disp
         self.pred_normals = pred_normals
         self.pred_disps2 = pred_disps2
         self.pred_poses = pred_poses
@@ -364,7 +382,7 @@ class SfMLearner(object):
             int(len(file_list['image_file_list'])//opt.batch_size)
         self.total_loss = total_loss
         self.pixel_loss = pixel_loss
-        self.exp_loss = exp_loss
+        self.normal_smooth_loss = normal_smooth_loss
         self.smooth_loss = smooth_loss
         self.edge_loss = edge_loss
         self.dm_loss = dm_loss
@@ -374,7 +392,7 @@ class SfMLearner(object):
         self.proj_error_stack_all = proj_error_stack_all
         self.exp_mask_stack_all = exp_mask_stack_all
         self.flyout_map_all = flyout_map_all
-        self.pred_edges = pred_edges
+        # self.pred_edges = pred_edges
         self.dense_motion_maps = dense_motion_maps
 
     def get_reference_explain_mask(self, downscaling):
@@ -569,21 +587,20 @@ class SfMLearner(object):
         tf.summary.scalar("total_loss", self.total_loss)
         tf.summary.scalar("pixel_loss", self.pixel_loss)
         tf.summary.scalar("smooth_loss", self.smooth_loss)
-        tf.summary.scalar("exp_loss", self.exp_loss)
         if opt.edge_mask_weight > 0:
             tf.summary.scalar("edge_loss", self.edge_loss)
         if opt.dense_motion_weight > 0:
             tf.summary.scalar("dm_loss", self.dm_loss)
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
         tf.summary.image("pred_disp2", self.pred_disps2[0])
+        tf.summary.image("pred_depth", self.pred_depths[0])
         # for s in range(opt.num_scales):
         s = 0
-        tf.summary.histogram("scale%d_depth" % s, self.pred_depth[s])
-        tf.summary.image('scale%d_depth_image' % s, self.pred_depth[s])
-        tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s])
+        # tf.summary.image('scale%d_depth_image' % s, self.pred_depth[s])
+        # tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s])
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
-        tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
+        # tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
         for i in range(opt.num_source):
 
             if opt.explain_reg_weight > 0:
@@ -624,13 +641,13 @@ class SfMLearner(object):
 
         with tf.variable_scope("training"):
             self.build_train_graph()
-        with tf.variable_scope("training", reuse=True):
-            self.setup_inference(opt.img_height, opt.img_width, "depth")
+        # with tf.variable_scope("training", reuse=True):
+        #     self.setup_inference(opt.img_height, opt.img_width, "depth")
         self.collect_summaries()
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if ("/dm/" not in var.name)]
+        load_saver_vars = [var for var in tf.model_variables() if ("/pose_exp_net" in var.name and "/dm/" not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
@@ -669,8 +686,11 @@ class SfMLearner(object):
                         fetches["smooth_loss"] = self.smooth_loss
                     if self.edge_loss != 0:
                         fetches["edge_loss"] = self.edge_loss
-                    fetches['pred_depth'] = self.pred_depth
-                    fetches['pred_disp'] = self.pred_disp
+                    fetches['pixel_loss'] = self.pixel_loss
+                    fetches['normal_smooth_loss'] = self.normal_smooth_loss
+                    fetches['dm_loss'] = self.dm_loss
+                    fetches['pred_depths'] = self.pred_depths
+                    # fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
                     # fetches['pred_depth2'] = self.pred_depth2
                     fetches['pred_disp2'] = self.pred_disps2[0]
@@ -689,77 +709,71 @@ class SfMLearner(object):
                     print("Epoch: [%2d] [%5d/%5d] time: %4.4f/it loss: %.3f" \
                             % (train_epoch, train_step, opt.steps_per_epoch, \
                                 time.time() - start_time, results["loss"]))
-                    if "smooth_loss" in results:
-                        print(results['edge_loss'])
-                    if np.any(np.isnan(results['pred_depth'][-1])):
-                        # np.save("./depth.npy", results['pred_depth'][-1])
-                        print (results['pred_depth'][-1])
-                        print ("-----------")
-                        print (results["pred_normal"])
-                        break
+                    print("pixel_loss: %.3f; normal_loss: %.3f; dm_loss: %.3f" \
+                            % (results['pixel_loss'], results['normal_smooth_loss'], results['dm_loss']))
 
-                if step % opt.eval_freq == 0:
-                    with tf.name_scope("evaluation"):
-                        dataset_name = opt.dataset_dir.split("/")[-2]
+                # if step % opt.eval_freq == 0:
+                #     with tf.name_scope("evaluation"):
+                #         dataset_name = opt.dataset_dir.split("/")[-2]
 
-                        ## evaluation for kitti dataset
-                        if dataset_name in ["kitti",'cityscapes']:
-                            modes = ["kitti"]
-                            root_img_path = "/home/zhenheng/datasets/kitti/"
-                            normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
-                            normal_gt_path = "/home/zhenheng/datasets/kitti/kitti_normal_gt_monofill_mask/"
-                            input_intrinsics = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl",'rb'))
-                            with open("../eval/"+opt.eval_txt,"a") as write_file:
-                                    write_file.write("Evaluation at iter [" + str(step)+"]: \n")
+                #         ## evaluation for kitti dataset
+                #         if dataset_name in ["kitti",'cityscapes']:
+                #             modes = ["kitti"]
+                #             root_img_path = "/home/zhenheng/datasets/kitti/"
+                #             normal_gt_path = "/home/zhenheng/works/unsp_depth_normal/depth2normal/eval/kitti/gt_nyu_fill_depth2nornmal_tf_mask/"
+                #             normal_gt_path = "/home/zhenheng/datasets/kitti/kitti_normal_gt_monofill_mask/"
+                #             input_intrinsics = pickle.load(open("/home/zhenheng/datasets/kitti/intrinsic_matrixes.pkl",'rb'))
+                #             with open("../eval/"+opt.eval_txt,"a") as write_file:
+                #                     write_file.write("Evaluation at iter [" + str(step)+"]: \n")
 
-                            for mode in modes:
-                                test_result_depth, test_result_normal = [], []
-                                test_fn = root_img_path+"test_files_"+mode+".txt"
-                                with open(test_fn) as f:
-                                    for file in f:
-                                        if file.split("/")[-1].split("_")[0] in input_intrinsics:
-                                            input_intrinsic = np.array([input_intrinsics[file.split("/")[-1].split("_")[0]]])[:,[0,4,2,5]]
-                                        else:
-                                            input_intrinsic = [[opt.img_width, opt.img_height, 0.5*opt.img_width, 0.5*opt.img_height]]
-                                        img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
-                                        img = np.expand_dims(img, axis=0)
-                                        # test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img, self.input_intrinsics: intrinsic})))
-                                        pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
-                                        test_result_depth.append(np.squeeze(pred_depth2_np))
-                                        pred_normal_np = np.squeeze(pred_normal_np)
-                                        # pred_normal_np[:,:,1] *= -1
-                                        # pred_normal_np[:,:,2] *= -1
-                                        # pred_normal_np = (pred_normal_np + 1.0) / 2.0
-                                        test_result_normal.append(pred_normal_np)
+                #             for mode in modes:
+                #                 test_result_depth, test_result_normal = [], []
+                #                 test_fn = root_img_path+"test_files_"+mode+".txt"
+                #                 with open(test_fn) as f:
+                #                     for file in f:
+                #                         if file.split("/")[-1].split("_")[0] in input_intrinsics:
+                #                             input_intrinsic = np.array([input_intrinsics[file.split("/")[-1].split("_")[0]]])[:,[0,4,2,5]]
+                #                         else:
+                #                             input_intrinsic = [[opt.img_width, opt.img_height, 0.5*opt.img_width, 0.5*opt.img_height]]
+                #                         img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
+                #                         img = np.expand_dims(img, axis=0)
+                #                         # test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img, self.input_intrinsics: intrinsic})))
+                #                         pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+                #                         test_result_depth.append(np.squeeze(pred_depth2_np))
+                #                         pred_normal_np = np.squeeze(pred_normal_np)
+                #                         # pred_normal_np[:,:,1] *= -1
+                #                         # pred_normal_np[:,:,2] *= -1
+                #                         # pred_normal_np = (pred_normal_np + 1.0) / 2.0
+                #                         test_result_normal.append(pred_normal_np)
 
-                                ## depth evaluation
-                                print ("Evaluation at iter ["+str(step)+"] "+mode)
-                                gt_depths, pred_depths, gt_disparities = load_depths(test_result_depth, mode, root_img_path, test_fn)
-                                abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, mode)
+                #                 ## depth evaluation
+                #                 print ("Evaluation at iter ["+str(step)+"] "+mode)
+                #                 gt_depths, pred_depths, gt_disparities = load_depths(test_result_depth, mode, root_img_path, test_fn)
+                #                 abs_rel, sq_rel, rms, log_rms, a1, a2, a3 = eval_depth(gt_depths, pred_depths, gt_disparities, mode)
 
-                                ## normal evaluation
-                                if mode == "kitti":
-                                    pred_normals, gt_normals = load_normals(test_result_normal, mode, normal_gt_path, test_fn)
-                                    dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals, mode)
+                #                 ## normal evaluation
+                #                 if mode == "kitti":
+                #                     pred_normals, gt_normals = load_normals(test_result_normal, mode, normal_gt_path, test_fn)
+                #                     dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = eval_normal(pred_normals, gt_normals, mode)
 
-                                with open("../eval/"+opt.eval_txt,"a") as write_file:
-                                    write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
-                                    if mode == "kitti":
-                                        write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
+                #                 with open("../eval/"+opt.eval_txt,"a") as write_file:
+                #                     write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
+                #                     if mode == "kitti":
+                #                         write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
 
-                        ## evaluation for nyuv2 dataset
-                        if dataset_name == "nyuv2":
-                            root_img_path = "/home/zhenheng/datasets/nyuv2/"
-                            normal_gt_path = "/home/zhenheng/datasets/nyuv2/normals_gt/"
-                            test_fn = "/home/zhenheng/datasets/nyuv2/test_file_list.txt"
-                            input_intrinsic = [[5.1885790117450188e+02, 5.1946961112127485e+02, 3.2558244941119034e+02, 2.5373616633400465e+02]]
-                            print ("Evaluation at iter ["+str(step)+"] ")
-                            abs_rel, sq_rel, rms, log_rms, a1, a2, a3, \
-                            dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = self.evaluation_depth_normal_nyu(sess, root_img_path, normal_gt_path, test_fn, input_intrinsic)
-                            with open("../eval/"+opt.eval_txt,"a") as write_file:
-                                write_file.write("Evaluation at iter [" + str(step)+"]: \n")
-                                write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
-                                write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
+                #         ## evaluation for nyuv2 dataset
+                #         if dataset_name == "nyuv2":
+                #             root_img_path = "/home/zhenheng/datasets/nyuv2/"
+                #             normal_gt_path = "/home/zhenheng/datasets/nyuv2/normals_gt/"
+                #             test_fn = "/home/zhenheng/datasets/nyuv2/test_file_list.txt"
+                #             input_intrinsic = [[5.1885790117450188e+02, 5.1946961112127485e+02, 3.2558244941119034e+02, 2.5373616633400465e+02]]
+                #             print ("Evaluation at iter ["+str(step)+"] ")
+                #             abs_rel, sq_rel, rms, log_rms, a1, a2, a3, \
+                #             dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = self.evaluation_depth_normal_nyu(sess, root_img_path, normal_gt_path, test_fn, input_intrinsic)
+                #             with open("../eval/"+opt.eval_txt,"a") as write_file:
+                #                 write_file.write("Evaluation at iter [" + str(step)+"]: \n")
+                #                 write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(abs_rel, sq_rel, rms, log_rms, a1, a2, a3))
+                #                 write_file.write("{:10.4f}, {:10.4f}, {:10.3f}, {:10.3f}, {:10.3f} \n".format(dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30))
 
                 if step % opt.save_latest_freq == 0:
                     self.save(sess, opt.checkpoint_dir, 'latest')
@@ -915,7 +929,7 @@ class SfMLearner(object):
         proj_pix2cam.set_shape([num_scales,3,3])
         return proj_cam2pix, proj_pix2cam
 
-    def format_file_list(self, data_root, split):
+    def format_file_list(self, data_root, depth_root, split):
         with open(data_root + '/%s.txt' % split, 'r') as f:
             frames = f.readlines()
         subfolders = [x.split(' ')[0] for x in frames]
@@ -924,9 +938,12 @@ class SfMLearner(object):
             frame_ids[i] + '.jpg') for i in range(len(frames))]
         cam_file_list = [os.path.join(data_root, subfolders[i], 
             frame_ids[i] + '_cam.txt') for i in range(len(frames))]
+        depth_file_list = [os.path.join(depth_root, subfolders[i],
+            frame_ids[i] + '.png') for i in range(len(frames))]
         all_list = {}
         all_list['image_file_list'] = image_file_list
         all_list['cam_file_list'] = cam_file_list
+        all_list['depth_file_list'] = depth_file_list
         return all_list
 
     def save(self, sess, checkpoint_dir, step):

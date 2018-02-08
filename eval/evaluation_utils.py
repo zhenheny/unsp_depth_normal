@@ -109,7 +109,8 @@ def read_file_data(files, data_root):
     im_files = []
     cams = []
     num_probs = 0
-    for filename in files:
+    for i, filename in enumerate(files):
+        # print("%d/%d" % (i, len(files)))
         filename = filename.split()[0]
         splits = filename.split('/')
         camera_id = np.int32(splits[2][-1:])   # 2 is left, 3 is right
@@ -120,12 +121,12 @@ def read_file_data(files, data_root):
         im = filename
         vel = '{}/{}/velodyne_points/data/{}.bin'.format(splits[0], splits[1], im_id)
 
-        if os.path.isfile(data_root + im):
+        if os.path.isfile(data_root + im) and os.path.isfile(data_root+vel):
             gt_files.append(data_root + vel)
             gt_calib.append(data_root + date + '/')
             im_sizes.append(sm.imread(data_root + im).shape[:2])
             im_files.append(data_root + im)
-            cams.append(2)
+            cams.append(camera_id)
         else:
             num_probs += 1
             print('{} missing'.format(data_root + im))
