@@ -1,9 +1,9 @@
 python3 train.py --dataset_dir=/home/zhenheng/datasets/kitti/eigen_process_832_256 \
 	--depth_dir=/home/zhenheng/datasets/kitti/eigen_process_depth \
-	--checkpoint_dir=/home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_wt2_normal_smooth_wt0.01_expwt0.0_dm_wt10_depthgt_sfmpy0723_depth1normal_eval_cont \
-	--eval_txt eval_kitti_d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_wt2_normal_smooth_wt0.01_expwt0.0_dm_wt10_depthgt_sfmpy0723_depth1normal_eval_cont.txt \
+	--checkpoint_dir=/home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_wt2_normal_smooth_wt0.01_expwt0.0_dm_wt1_depthgt_sfmpy0723_depth1normal_eval_cont \
+	--eval_txt eval_kitti_d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_wt2_normal_smooth_wt0.01_expwt0.0_dm_wt1_depthgt_sfmpy0723_depth1normal_eval_cont.txt \
 	--img_width=832 --img_height=256 --batch_size=4 \
-	--smooth_weight=0 --explain_reg_weight=0.0 --edge_mask_weight=0.0 --edge_as_explain 0.0 --dense_motion_weight=10.0\
+	--smooth_weight=0 --explain_reg_weight=0.0 --edge_mask_weight=0.0 --edge_as_explain 0.0 --dense_motion_weight=1.0\
 	--normal_smooth_weight=0.01 --img_grad_weight=0 --occ_mask=0.0 --depth_consistency=0.0 \
 	--gpu_id 1 --gpu_fraction 0.4\
 	--continue_train True\

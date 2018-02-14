@@ -526,6 +526,7 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
     dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
     dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
+    dense_motion = tf.concat([dense_motion[:,:1,:],tf.zeros([batch_size,1,img_height*img_width]),dense_motion[:,-1:,:]],axis=1)
     cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
     shifted_cam_coords = cam_coords+dense_motion
     ones = tf.ones([batch_size, 1, img_height*img_width])
