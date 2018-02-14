@@ -526,11 +526,15 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
     dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
     dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
-    dense_motion = tf.concat([dense_motion[:,:1,:],tf.zeros([batch_size,1,img_height*img_width]),dense_motion[:,-1:,:]],axis=1)
+    # dense_motion = tf.concat([dense_motion[:,:1,:],tf.zeros([batch_size,1,img_height*img_width]),dense_motion[:,-1:,:]],axis=1)
     cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
     shifted_cam_coords = cam_coords+dense_motion
     ones = tf.ones([batch_size, 1, img_height*img_width])
-    cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
+
+    ## two cam_coords to warp the source image twice
+    shifted_cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+
     if len(pose.get_shape().as_list()) == 3:
         pose_mat = pose
     else:
@@ -542,13 +546,19 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
     intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
     proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat)
+
     src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
+    shifted_src_pixel_coords = _cam2pixel(shifted_cam_coords_hom, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords, 
                                 [batch_size, 2, img_height, img_width])
+    shifted_src_pixel_coords = tf.reshape(shifted_src_pixel_coords, 
+                                [batch_size, 2, img_height, img_width])
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
+    shifted_src_pixel_coords = tf.transpose(shifted_src_pixel_coords, perm=[0,2,3,1])
     projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
+    shifted_projected_img, shifted_flyout_mask = _spatial_transformer(img, shifted_src_pixel_coords, target_image)
     
-    return projected_img, flyout_mask
+    return projected_img, shifted_projected_img, flyout_mask
 
 
 
