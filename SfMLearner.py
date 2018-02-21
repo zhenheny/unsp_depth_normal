@@ -194,9 +194,15 @@ class SfMLearner(object):
                         # self.compute_edge_aware_smooth_loss(pred_normal[:,3:-3,3:-3,:], ))
                         self.compute_smooth_loss_wedge(pred_normal[:, 3:-3, 3:-3, :], pred_edges[s][:,3:-3,3:-3,], mode='l2', alpha=0.1))
                         # self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
-
-                curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
-                curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
+                
+                # alpha = 1.0
+                # curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image)
+                # weights_x = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(curr_tgt_image_grad_x), 3, keep_dims=True))
+                # weights_y = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(curr_tgt_image_grad_y), 3, keep_dims=True))
+                # weights_x = tf.pad(weights_x-1.0, tf.constant([[0,0],[0,0],[0,1],[0,0]]))+1.0
+                # weights_y = tf.pad(weights_y-1.0, tf.constant([[0,0],[0,1],[0,0],[0,0]]))+1.0
+                # weights = weights_x*weights_y
+                # curr_src_image_grad_x, curr_src_image_grad_y = self.gradient(curr_src_image_stack[:, :-2, 1:-1 :])
                 for i in range(opt.num_source):
                     # Cross-entropy loss as regularization for the explainability prediction
                     if opt.explain_reg_weight > 0:
@@ -268,7 +274,7 @@ class SfMLearner(object):
                         # dm_loss += opt.dense_motion_weight/(2**s) *\
                         #         self.compute_smooth_loss_wedge(dense_motion_maps[s][:,:,:,3*i:3*(i+1)], pred_edges[s], mode='l2', alpha=0.1)
                         dm_loss += opt.dense_motion_weight/(2**s) *\
-                                tf.reduce_mean(tf.square(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
+                                tf.reduce_mean(tf.abs(tf.squeeze(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])-ref_dm_map))
                         dm_loss += opt.dense_motion_weight/(2**s) *\
                                 self.compute_smooth_loss(dense_motion_maps[s][:,:,:,3*i:3*(i+1)])
 
