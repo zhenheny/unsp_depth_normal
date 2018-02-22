@@ -1,4 +1,7 @@
 from __future__ import division
+import sys
+print(sys.version)
+
 import tensorflow as tf
 import pprint
 import random
@@ -46,10 +49,10 @@ def main(_):
 
     pp = pprint.PrettyPrinter()
     pp.pprint(flags.FLAGS.__flags)
-    
+
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
-        
+
     sfm = SfMLearner()
     sfm.train(FLAGS)
 
