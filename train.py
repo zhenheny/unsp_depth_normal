@@ -18,6 +18,7 @@ flags.DEFINE_float("explain_reg_weight", 0.2, "Weight for explanability regulari
 flags.DEFINE_float("edge_as_explain", 0.0, "Weight for edge as explain mask")
 flags.DEFINE_float("edge_mask_weight", 1, "Whether or not use edge prediction, 1 for use")
 flags.DEFINE_float("dense_motion_weight", 0.1, "Whether or not use edge prediction, 1 for use")
+flags.DEFINE_float("ssim_weight", 0.1, "Pixel loss computed by both pixel diff and ssim")
 flags.DEFINE_float("occ_mask", 0, "occlusion mask")
 flags.DEFINE_float("depth_consistency", 0, "if set to 1, there is a depth consistency loss")
 flags.DEFINE_integer("batch_size", 4, "The size of of a sample batch")
