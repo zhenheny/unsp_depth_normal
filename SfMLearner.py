@@ -1,17 +1,17 @@
 from __future__ import division
 import os
 import sys
+sys.path.insert(0, "./depth2normal/")
+sys.path.append("./eval")
+
 import time
 import math
 import random
 import numpy as np
 import scipy.misc as sm
 import tensorflow as tf
-from nets import *
-from utils import *
-sys.path.insert(0, "./depth2normal/")
-sys.path.append("./eval")
-
+import nets
+import utils as uts
 from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
@@ -93,13 +93,13 @@ class SfMLearner(object):
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
-            pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
+            pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(tgt_image, \
                                         do_edge=(opt.edge_mask_weight > 0))
             pred_depth = [1./d for d in pred_disp]
 
         with tf.name_scope("pose_and_explainability_prediction"):
             pred_poses, pred_exp_logits, dense_motion_maps, pose_exp_net_endpoints = \
-                pose_exp_net(tgt_image,
+                nets.pose_exp_net(tgt_image,
                              src_image_stack,
                              do_exp=(opt.explain_reg_weight > 0),
                              do_dm=(opt.dense_motion_weight > 0))
@@ -237,7 +237,7 @@ class SfMLearner(object):
 
                     # Inverse warp the source image to the target image frame
                     # Use pred_depth and 8 pred_depth2 maps for inverse warping
-                    curr_proj_image, curr_flyout_map= inverse_warp(
+                    curr_proj_image, curr_flyout_map= uts.inverse_warp(
                         curr_src_image_stack[:,:,:,3*i:3*(i+1)],
                         pred_depth2,
                         # curr_src_image_stack[:,:,:,3*i:3*(i+1)],
@@ -649,7 +649,8 @@ class SfMLearner(object):
 
         if not ((opt.continue_train==True) and (opt.checkpoint_continue=="")):
             with open("./log/"+opt.eval_txt, "w") as f:
-                f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format('abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
+                f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format(
+                    'abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
 
         with tf.variable_scope("training"):
             self.build_train_graph()
@@ -828,7 +829,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
         with tf.name_scope("depth_prediction"):
-            pred_disp, pred_edges, depth_net_endpoints = disp_net(input_mc, do_edge=True)
+            pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(input_mc, do_edge=True)
             pred_depth = [1./disp for disp in pred_disp]
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
@@ -855,7 +856,7 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         with tf.variable_scope('training', reuse=True):
             with tf.name_scope("depth_prediction"):
-                pred_disp, depth_net_endpoints = disp_net(input_mc)
+                pred_disp, depth_net_endpoints = nets.disp_net(input_mc)
                 pred_depth = [1./disp for disp in pred_disp]
 
         self.inputs = input_uint8

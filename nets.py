@@ -43,10 +43,10 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_dm=True, is_trainin
             with tf.variable_scope('pose'):
                 cnv6  = slim.conv2d(cnv5, 256, [3, 3], stride=2, scope='cnv6')
                 cnv7  = slim.conv2d(cnv6, 256, [3, 3], stride=2, scope='cnv7')
-                pose_pred = slim.conv2d(cnv7, 6*num_source, [1, 1], scope='pred', 
+                pose_pred = slim.conv2d(cnv7, 6*num_source, [1, 1], scope='pred',
                     stride=1, normalizer_fn=None, activation_fn=None)
                 pose_avg = tf.reduce_mean(pose_pred, [1, 2])
-                # Empirically we found that scaling by a small constant 
+                # Empirically we found that scaling by a small constant
                 # facilitates training.
                 pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
             # Exp mask specific layers
@@ -55,19 +55,19 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_dm=True, is_trainin
                     upcnv5 = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5')
 
                     upcnv4 = slim.conv2d_transpose(upcnv5, 128, [3, 3], stride=2, scope='upcnv4')
-                    mask4 = slim.conv2d(upcnv4, num_source * 2, [3, 3], stride=1, scope='mask4', 
+                    mask4 = slim.conv2d(upcnv4, num_source * 2, [3, 3], stride=1, scope='mask4',
                         normalizer_fn=None, activation_fn=None)
 
                     upcnv3 = slim.conv2d_transpose(upcnv4, 64,  [3, 3], stride=2, scope='upcnv3')
-                    mask3 = slim.conv2d(upcnv3, num_source * 2, [3, 3], stride=1, scope='mask3', 
+                    mask3 = slim.conv2d(upcnv3, num_source * 2, [3, 3], stride=1, scope='mask3',
                         normalizer_fn=None, activation_fn=None)
-                    
+
                     upcnv2 = slim.conv2d_transpose(upcnv3, 32,  [5, 5], stride=2, scope='upcnv2')
-                    mask2 = slim.conv2d(upcnv2, num_source * 2, [5, 5], stride=1, scope='mask2', 
+                    mask2 = slim.conv2d(upcnv2, num_source * 2, [5, 5], stride=1, scope='mask2',
                         normalizer_fn=None, activation_fn=None)
 
                     upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
-                    mask1 = slim.conv2d(upcnv1, num_source * 2, [7, 7], stride=1, scope='mask1', 
+                    mask1 = slim.conv2d(upcnv1, num_source * 2, [7, 7], stride=1, scope='mask1',
                         normalizer_fn=None, activation_fn=None)
             else:
                 mask1 = None
@@ -81,21 +81,21 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, do_dm=True, is_trainin
                     upcnv5 = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5')
 
                     upcnv4 = slim.conv2d_transpose(upcnv5, 128, [3, 3], stride=2, scope='upcnv4')
-                    dm4 = slim.conv2d(upcnv4, num_source * 3, [3, 3], stride=1, scope='dm4', 
+                    dm4 = slim.conv2d(upcnv4, num_source * 3, [3, 3], stride=1, scope='dm4',
                         normalizer_fn=None, activation_fn=None)
 
                     upcnv3 = slim.conv2d_transpose(upcnv4, 64,  [3, 3], stride=2, scope='upcnv3')
-                    dm3 = slim.conv2d(upcnv3, num_source * 3, [3, 3], stride=1, scope='dm3', 
+                    dm3 = slim.conv2d(upcnv3, num_source * 3, [3, 3], stride=1, scope='dm3',
                         normalizer_fn=None, activation_fn=None)
 
                     upcnv2 = slim.conv2d_transpose(upcnv3, 32,  [5, 5], stride=2, scope='upcnv2')
-                    dm2 = slim.conv2d(upcnv2, num_source * 3, [3, 3], stride=1, scope='dm2', 
+                    dm2 = slim.conv2d(upcnv2, num_source * 3, [3, 3], stride=1, scope='dm2',
                         normalizer_fn=None, activation_fn=None)
 
                     upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
-                    dm1 = slim.conv2d(upcnv1, num_source * 3, [7, 7], stride=1, scope='dm1', 
+                    dm1 = slim.conv2d(upcnv1, num_source * 3, [7, 7], stride=1, scope='dm1',
                         normalizer_fn=None, activation_fn=None)
- 
+
 
             end_points = utils.convert_collection_to_dict(end_points_collection)
             return pose_final, [mask1, mask2, mask3, mask4], [dm1, dm2, dm3, dm4], end_points
@@ -104,7 +104,8 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
-    tgt_image = tf.image.resize_bilinear(tgt_image, [127, 415]) 
+    tgt_image = tf.image.resize_bilinear(tgt_image, [127, 415])
+
     with tf.variable_scope('depth_net') as sc:
         end_points_collection = sc.original_name_scope + '_end_points'
         with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
@@ -148,7 +149,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
             upcnv4 = slim.conv2d_transpose(icnv5, 128, [3, 3], stride=2, scope='upcnv4')
             i4_in  = tf.concat([upcnv4, cnv3b], axis=3)
             icnv4  = slim.conv2d(i4_in, 128, [3, 3], stride=1, scope='icnv4')
-            disp4  = DISP_SCALING * slim.conv2d(icnv4, 1,   [3, 3], stride=1, 
+            disp4  = DISP_SCALING * slim.conv2d(icnv4, 1,   [3, 3], stride=1,
                 activation_fn=tf.sigmoid, normalizer_fn=None, scope='disp4') + MIN_DISP
             disp4 = tf.image.resize_bilinear(disp4, [H//8, W//8])
             disp4_up = tf.image.resize_bilinear(disp4, [np.int(H/4), np.int(W/4)])
@@ -156,7 +157,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
             upcnv3 = slim.conv2d_transpose(icnv4, 64,  [3, 3], stride=2, scope='upcnv3')
             i3_in  = tf.concat([upcnv3, cnv2b, disp4_up], axis=3)
             icnv3  = slim.conv2d(i3_in, 64,  [3, 3], stride=1, scope='icnv3')
-            disp3  = DISP_SCALING * slim.conv2d(icnv3, 1,   [3, 3], stride=1, 
+            disp3  = DISP_SCALING * slim.conv2d(icnv3, 1,   [3, 3], stride=1,
                 activation_fn=tf.sigmoid, normalizer_fn=None, scope='disp3') + MIN_DISP
             disp3 = tf.image.resize_bilinear(disp3, [H//4, W//4])
             cnv1b_shape = cnv1b.get_shape().as_list()
@@ -166,7 +167,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
             upcnv2 = tf.image.resize_bilinear(upcnv2, [cnv1b_shape[1], cnv1b_shape[2]])
             i2_in  = tf.concat([upcnv2, cnv1b, disp3_up], axis=3)
             icnv2  = slim.conv2d(i2_in, 32,  [3, 3], stride=1, scope='icnv2')
-            disp2  = DISP_SCALING * slim.conv2d(icnv2, 1,   [3, 3], stride=1, 
+            disp2  = DISP_SCALING * slim.conv2d(icnv2, 1,   [3, 3], stride=1,
                 activation_fn=tf.sigmoid, normalizer_fn=None, scope='disp2') + MIN_DISP
             disp2 = tf.image.resize_bilinear(disp2, [H//2, W//2])
             disp2_up = tf.image.resize_bilinear(disp2, [H, W])
@@ -201,7 +202,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
                     upcnv4_e = slim.conv2d_transpose(icnv5_e, 128, [4, 4], stride=2, scope='upcnv4')
                     i4_in_e  = tf.concat([upcnv4_e, cnv3b], axis=3)
                     icnv4_e  = slim.conv2d(i4_in, 128, [3, 3], stride=1, scope='icnv4')
-                    edge4  = slim.conv2d(icnv4_e, 1,   [3, 3], stride=1, 
+                    edge4  = slim.conv2d(icnv4_e, 1,   [3, 3], stride=1,
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge4') + MIN_EDGE
                     edge4 = tf.image.resize_nearest_neighbor(edge4, [H//8,W//8])
                     # edge4_up = tf.image.resize_bilinear(edge4, [np.int(H/4), np.int(W/4)])
@@ -211,7 +212,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
                     i3_in_e  = tf.concat([upcnv3_e, cnv2b, edge4_up], axis=3)
                     # i3_in_e  = tf.concat([upcnv3_e, cnv2b], axis=3)
                     icnv3_e  = slim.conv2d(i3_in_e, 64,  [3, 3], stride=1, scope='icnv3')
-                    edge3  = slim.conv2d(icnv3_e, 1,   [3, 3], stride=1, 
+                    edge3  = slim.conv2d(icnv3_e, 1,   [3, 3], stride=1,
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge3') + MIN_EDGE
                     edge3 = tf.image.resize_nearest_neighbor(edge3, [H//4,W//4])
                     # edge3_up = tf.image.resize_bilinear(edge3, [np.int(H/2), np.int(W/2)])
@@ -222,7 +223,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
                     i2_in_e  = tf.concat([upcnv2_e, cnv1b, edge3_up], axis=3)
                     # i2_in_e  = tf.concat([upcnv2_e, cnv1b], axis=3)
                     icnv2_e  = slim.conv2d(i2_in_e, 32,  [3, 3], stride=1, scope='icnv2')
-                    edge2  = slim.conv2d(icnv2_e, 1,   [3, 3], stride=1, 
+                    edge2  = slim.conv2d(icnv2_e, 1,   [3, 3], stride=1,
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge2') + MIN_EDGE
                     edge2 = tf.image.resize_nearest_neighbor(edge2, [H//2,W//2])
                     # edge2_up = tf.image.resize_bilinear(edge2, [H, W])
@@ -246,6 +247,6 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
                 edge2 = None
                 edge3 = None
                 edge4 = None
-            
+
             end_points = utils.convert_collection_to_dict(end_points_collection)
             return [disp1, disp2, disp3, disp4], [edge1, edge2, edge3, edge4], end_points
