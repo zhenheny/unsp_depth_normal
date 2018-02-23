@@ -1,7 +1,4 @@
 from __future__ import division
-import sys
-print(sys.version)
-
 import tensorflow as tf
 import pprint
 import random
@@ -11,6 +8,7 @@ import os
 
 flags = tf.app.flags
 flags.DEFINE_string("dataset_dir", "", "Dataset directory")
+flags.DEFINE_string("eval_data_path", "", "Evaluation dataset dir")
 flags.DEFINE_string("checkpoint_dir", "./checkpoints/", "Directory name to save the checkpoints")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam")
 flags.DEFINE_float("beta1", 0.9, "Momentum term of adam")
@@ -21,6 +19,7 @@ flags.DEFINE_float("explain_reg_weight", 0.2, "Weight for explanability regulari
 flags.DEFINE_float("edge_as_explain", 0.0, "Weight for edge as explain mask")
 flags.DEFINE_float("edge_mask_weight", 1, "Whether or not use edge prediction, 1 for use")
 flags.DEFINE_float("dense_motion_weight", 0.1, "Whether or not use edge prediction, 1 for use")
+flags.DEFINE_float("ssim_weight", 0.1, "Pixel loss computed by both pixel diff and ssim")
 flags.DEFINE_float("occ_mask", 0, "occlusion mask")
 flags.DEFINE_float("depth_consistency", 0, "if set to 1, there is a depth consistency loss")
 flags.DEFINE_integer("batch_size", 4, "The size of of a sample batch")

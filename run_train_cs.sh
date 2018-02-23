@@ -1,5 +1,6 @@
 /opt/python3.5/bin/python3.5 train.py \
-    --dataset_dir=/home/peng/Data/cityscapes/frame_seq_832_342 \
+    --dataset_dir=/home/peng/Data/cityscapes/frame_seq_832_342/ \
+    --eval_data_path=/home/peng/Data/kitti/ \
 	--checkpoint_dir=./output/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth1normal_eval_edgepretrained_cs \
 	--eval_txt=ektc_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth1normal_eval_edgepretrained_cs.txt \
 	--img_width=832 \
@@ -18,9 +19,3 @@
     --gpu_fraction=0.4 \
 	--continue_train=True \
 	--checkpoint_continue=./output/init_model/model-100002
-# /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-100002
-	# /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_wedgel2_alpha10_clip0_wt2_normal_wedgel2_alpha0.1_wt0.01_edge_input417_l2_deconvk4_noscaling_wt0.15_expwt0.0_sfmpy0723_depth1normal_eval_cont/model-60001
-	# /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-100002
-	# /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_dilated2_4pteadw0.0_noflyout_depthsmooth_smooth0.25_sfmpy0723_depth1normal_eval/model-50001
-	# --checkpoint_continue /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_dilated2_4pteadw0.0_noflyout_depthsmooth_smooth0.25_sfmpy0723_depth1normal_eval/model-50001
-	#--checkpoint_continue /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_1pty0_depthsmooth_smoothwt0.25_normalnei1_depth1_eval/model-30001
