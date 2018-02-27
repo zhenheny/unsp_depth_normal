@@ -80,6 +80,7 @@ def pose_exp_net(tgt_image, src_image_stack, do_exp=True, is_training=True):
 
 def disp_net(tgt_image, is_training=True, do_edge=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
+    reuse_flag = not is_training
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
     tgt_image = tf.image.resize_bilinear(tgt_image, [127, 415]) 

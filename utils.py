@@ -94,7 +94,7 @@ def euler2mat(z, y, x):
     rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
     return rotMat
 
-def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
+def inverse_warp(tgt_img, src_img, tgt_depth, src_depth, pose, intrinsics, intrinsics_inv):
     """Inverse warp a source image to the target image plane
        Part of the code modified from  
        https://github.com/tensorflow/models/blob/master/transformer/spatial_transformer.py
@@ -518,14 +518,12 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
         out_img = target_image*flyout_mask + out_img*(1.0-flyout_mask)
         return out_img, flyout_mask
 
-    dims = tf.shape(img)
-    batch_size, img_height, img_width = dims[0], dims[1], dims[2]
-    depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
+    dims = tf.shape(src_img)
+    batch_size, img_height, img_width = dims[0], dims[1], dims[2] 
     grid = _meshgrid_abs(img_height, img_width)
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
-    cam_coords = _pixel2cam(depth, grid, intrinsics_inv)
-    ones = tf.ones([batch_size, 1, img_height*img_width])
-    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+
+    # calculate camera motion from pose
     if len(pose.get_shape().as_list()) == 3:
         pose_mat = pose
     else:
@@ -536,14 +534,35 @@ def inverse_warp(img, depth, pose, intrinsics, intrinsics_inv, target_image):
     hom_filler = tf.tile(hom_filler, [batch_size, 1, 1])
     intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
     intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
+
+    # warp source image to tgt image
+    tgt_depth = tf.reshape(tgt_depth, [batch_size, 1, img_height*img_width])
+    cam_coords = _pixel2cam(tgt_depth, grid, intrinsics_inv)
+    ones = tf.ones([batch_size, 1, img_height*img_width])
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+
     proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat)
     src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords, 
                                 [batch_size, 2, img_height, img_width])
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
-    projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
+    projected_tgt_img, flyout_mask_tgt = _spatial_transformer(src_img, src_pixel_coords, tgt_img)
+
+    # warp tgt image to src image
+    src_depth = tf.reshape(src_depth, [batch_size, 1, img_height*img_width])
+    cam_coords = _pixel2cam(src_depth, grid, intrinsics_inv)
+    ones = tf.ones([batch_size, 1, img_height*img_width])
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+
+    pose_mat_inv = tf.matrix_inverse(pose_mat)
+    proj_cam_to_tgt_pixel = tf.matmul(intrinsics, pose_mat_inv)
+    tgt_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_tgt_pixel)
+    tgt_pixel_coords = tf.reshape(tgt_pixel_coords, 
+                                [batch_size, 2, img_height, img_width])
+    tgt_pixel_coords = tf.transpose(tgt_pixel_coords, perm=[0,2,3,1])
+    projected_src_img, flyout_mask_src = _spatial_transformer(tgt_img, tgt_pixel_coords, src_img)
     
-    return projected_img, flyout_mask
+    return projected_tgt_img, projected_src_img, flyout_mask_tgt
 
 
 
