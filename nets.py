@@ -3,6 +3,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python.layers import utils
 import numpy as np
+import pdb
 
 # Range of disparity/inverse depth values
 DISP_SCALING = 10
@@ -45,9 +46,9 @@ def pose_exp_net(tgt_image,
 
     inputs = tf.concat(input_image_pairs, axis=0)
     batch_norm_params = {'is_training': is_training}
-    num_source = int(src_image.get_shape()[3].value//3)
+    num_source = len(src_image_seq)
 
-    with tf.variable_scope('pose_exp_net') as sc:
+    with tf.variable_scope('motion_net') as sc:
         end_points_collection = sc.original_name_scope + '_end_points'
         with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
                             # normalizer_fn = None,
@@ -70,10 +71,13 @@ def pose_exp_net(tgt_image,
                 cnv7  = slim.conv2d(cnv6, 256, [3, 3], stride=2, scope='cnv7')
                 pose_pred = slim.conv2d(cnv7, 6, [1, 1], scope='pred',
                     stride=1, normalizer_fn=None, activation_fn=None)
-                pose_avg = tf.reduce_mean(pose_pred, [1, 2])
+                pose_avg = tf.reduce_mean(pose_pred, [1])
+
                 # Empirically we found that scaling by a small constant
                 # facilitates training.
-                pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
+                pose_avg = tf.split(pose_avg, num_source, axis=0)
+                pose_final = 0.01 * tf.concat(pose_avg, axis=1)
+                # pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
 
             # Exp mask specific layers
             if do_exp:
@@ -138,13 +142,15 @@ def pose_exp_net(tgt_image,
             # reorgnize back to original
             masks = [mask1, mask2, mask3, mask4]
             dms = [dm1, dm2, dm3, dm4]
-            for i, mask in enumerate(masks):
-                src_masks = tf.split(mask, num_source, axis=0)
-                masks[i] = tf.concat(src_masks, axis=3)
 
-            for i, dm in enumerate(dms):
-                src_dms = tf.split(dm, num_source, axis=0)
-                dms[i] = tf.concat(src_dms, axis=3)
+            if do_exp:
+                for i, mask in enumerate(masks):
+                    src_masks = tf.split(mask, num_source, axis=0)
+                    masks[i] = tf.concat(src_masks, axis=3)
+            if do_dm:
+                for i, dm in enumerate(dms):
+                    src_dms = tf.split(dm, num_source, axis=0)
+                    dms[i] = tf.concat(src_dms, axis=3)
 
             return pose_final, masks, dms, end_points
 

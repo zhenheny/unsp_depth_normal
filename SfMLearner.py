@@ -10,12 +10,15 @@ import random
 import numpy as np
 import scipy.misc as sm
 import tensorflow as tf
+import tensorflow.contrib.slim as slim
 import nets
 import utils as uts
 from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
 from evaluate_normal import *
+
+import pdb
 
 
 class SfMLearner(object):
@@ -44,6 +47,7 @@ class SfMLearner(object):
         SSIM = SSIM_n / SSIM_d
 
         return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
+
 
     def build_train_graph(self):
         opt = self.opt
@@ -86,10 +90,13 @@ class SfMLearner(object):
 
             # (TODO Peng) load src camera intrinsics
 
+            # pdb.set_trace()
             # Form training batches
             input_batch = \
-                    tf.train.batch(src_image_seq + [tgt_image, proj_cam2pix,
-                                    proj_pix2cam], batch_size=opt.batch_size)
+                    tf.train.batch(src_image_seq + \
+                    [tgt_image, proj_cam2pix, proj_pix2cam],
+                    batch_size=opt.batch_size)
+
             src_image_seq = input_batch[:opt.num_source]
             tgt_image, proj_cam2pix, proj_pix2cam = input_batch[opt.num_source:]
 
@@ -125,12 +132,17 @@ class SfMLearner(object):
                         [opt.batch_size, -1, -1, -1]))
                 pred_depth_src.append(depth_src)
 
-        with tf.name_scope("pose_and_explainability_prediction"):
+            for i in range(len(pred_edges)):
+                pred_edges[i] = tf.slice(pred_edges[i], [0, 0, 0, 0],
+                        [opt.batch_size, -1, -1, -1])
+
+
+        with tf.name_scope("pose_prediction"):
             pred_poses, pred_exp_logits, dense_motion_maps, pose_exp_net_endpoints = \
                 nets.pose_exp_net(tgt_image,
                                   src_image_seq,
-                                  pred_depth_src[-1],
-                                  pred_depth_tgt[-1],
+                                  tgt_depth=pred_depth_tgt[-1] if self.opt.depth4pose else None,
+                                  src_depth_seq=pred_depth_src[-1] if self.opt.depth4pose else None,
                                   do_exp=(opt.explain_reg_weight > 0))
 
         # inverse image warp here
@@ -161,6 +173,7 @@ class SfMLearner(object):
             edge_mask_all = []
             depth_inverse = False
 
+            src_image = tf.concat(src_image_seq, axis=3)
             for s in range(opt.num_scales):
                 # Construct a reference explainability mask (i.e. all
                 # pixels are explainable)
@@ -169,6 +182,7 @@ class SfMLearner(object):
                     ref_exp_mask = self.get_reference_explain_mask(s)
                 # Scale the source and target images for computing loss at the
                 # according scale.
+
                 curr_tgt_image = tf.image.resize_bilinear(tgt_image,
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
                 curr_src_image = tf.image.resize_bilinear(src_image,
@@ -177,7 +191,7 @@ class SfMLearner(object):
                 ## depth2normal and normal2depth at each scale level
                 intrinsic_mtx = proj_cam2pix[:,s,:,:]
                 intrinsics = tf.concat([tf.expand_dims(intrinsic_mtx[:,0,0],1), tf.expand_dims(intrinsic_mtx[:,1,1],1), tf.expand_dims(intrinsic_mtx[:,0,2],1), tf.expand_dims(intrinsic_mtx[:,1,2],1)], 1)
-                pred_depth_tensor = tf.squeeze(pred_depth_src[s])
+                pred_depth_tensor = tf.squeeze(pred_depth_tgt[s])
 
                 pred_normal = depth2normal_layer_batch(
                         pred_depth_tensor, intrinsics, depth_inverse)
@@ -255,9 +269,6 @@ class SfMLearner(object):
                     curr_proj_image, curr_flyout_map= uts.inverse_warp(
                         curr_src_image[:,:,:,3*i:3*(i+1)],
                         pred_depth2,
-                        # curr_src_image[:,:,:,3*i:3*(i+1)],
-                        # pred_depth2,
-                        # pred_depth[s],
                         pred_poses[:,i,:], ## [batchsize, num_source, 6]
                         dense_motion_maps[s][:,:,:,3*i:3*(i+1)], ## [batchsize, width, height, num_source*3]
                         proj_cam2pix[:,s,:,:],  ## [batchsize, scale, 3, 3]
@@ -405,7 +416,7 @@ class SfMLearner(object):
 
         # Collect tensors that are useful later (e.g. tf summary)
 
-        self.pred_depth_src = pred_depth_src
+        self.pred_depth_tgt = pred_depth_tgt
         self.pred_disp = pred_disp
         self.pred_normals = pred_normals
         self.pred_disps2 = pred_disps2
@@ -632,9 +643,9 @@ class SfMLearner(object):
         tf.summary.image("pred_disp2", self.pred_disps2[0])
         # for s in range(opt.num_scales):
         s = 0
-        tf.summary.histogram("scale%d_depth" % s, self.pred_depth_src[s])
-        tf.summary.image('scale%d_depth_image' % s, self.pred_depth_src[s])
-        tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth_src[s])
+        tf.summary.histogram("scale%d_depth" % s, self.pred_depth_tgt[s])
+        tf.summary.image('scale%d_depth_image' % s, self.pred_depth_tgt[s])
+        tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth_tgt[s])
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
         tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
@@ -688,7 +699,7 @@ class SfMLearner(object):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
 
-        load_saver_vars = [var for var in tf.model_variables() if ("/dm/" not in var.name)]
+        load_saver_vars = [var for var in tf.model_variables() if (opt.rm_var_scope not in var.name)]
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step],
@@ -712,6 +723,7 @@ class SfMLearner(object):
                 else:
                     checkpoint = opt.checkpoint_continue
                     self.load_saver.restore(sess, checkpoint)
+
                 # self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
                 start_time = time.time()
@@ -727,7 +739,7 @@ class SfMLearner(object):
                         fetches["smooth_loss"] = self.smooth_loss
                     if self.edge_loss != 0:
                         fetches["edge_loss"] = self.edge_loss
-                    fetches['pred_depth_src'] = self.pred_depth_src
+                    fetches['pred_depth_tgt'] = self.pred_depth_tgt
                     fetches['pred_disp'] = self.pred_disp
                     fetches['pred_normal'] = self.pred_normals[0]
                     # fetches['pred_depth2'] = self.pred_depth2
@@ -749,9 +761,9 @@ class SfMLearner(object):
                                 time.time() - start_time, results["loss"]))
                     if "smooth_loss" in results:
                         print(results['edge_loss'])
-                    if np.any(np.isnan(results['pred_depth_src'][-1])):
+                    if np.any(np.isnan(results['pred_depth_tgt'][-1])):
                         # np.save("./depth.npy", results['pred_depth'][-1])
-                        print (results['pred_depth_src'][-1])
+                        print (results['pred_depth_tgt'][-1])
                         print ("-----------")
                         print (results["pred_normal"])
                         break
@@ -955,6 +967,7 @@ class SfMLearner(object):
         tgt_image.set_shape([opt.img_height, opt.img_width, 3])
         return tgt_image, src_image
 
+
     def unpack_image_sequence_list(self, image_seq):
         opt = self.opt
         # Assuming the center image is the target frame
@@ -962,6 +975,7 @@ class SfMLearner(object):
         tgt_image = tf.slice(image_seq,
                              [0, tgt_start_idx, 0],
                              [-1, opt.img_width, -1])
+
         # Source fames before the target frame
         src_image_1 = tf.slice(image_seq,
                                [0, 0, 0],
@@ -973,8 +987,9 @@ class SfMLearner(object):
                                [-1, int(opt.img_width * (opt.num_source//2)), -1])
         src_image_seq = [src_image_1, src_image_2]
 
-        src_image_seq = [src_image.set_shape([opt.img_height, opt.img_width, 3]) \
-                for src_image in src_image_seq]
+        for src_image in src_image_seq:
+            src_image.set_shape([opt.img_height, opt.img_width, 3])
+
         tgt_image.set_shape([opt.img_height, opt.img_width, 3])
 
         return tgt_image, src_image_seq
