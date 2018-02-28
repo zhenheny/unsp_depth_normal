@@ -32,6 +32,7 @@ flags.DEFINE_integer("eval_freq", 500, "Evaluation every eval_freq iterations")
 flags.DEFINE_integer("save_latest_freq", 5000, \
     "Save the latest model every save_latest_freq iterations (overwrites the previous latest model)")
 flags.DEFINE_boolean("continue_train", False, "Continue training from previous checkpoint")
+flags.DEFINE_boolean("depth4pose", False, "Continue training from previous checkpoint")
 flags.DEFINE_string("checkpoint_continue", "", "From which model it continues training")
 flags.DEFINE_string("gpu_id", "0", "GPU id used in training")
 flags.DEFINE_float("gpu_fraction", 0.4, "GPU memoery fraction required")

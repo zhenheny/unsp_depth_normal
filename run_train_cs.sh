@@ -14,7 +14,7 @@
     --img_grad_weight=0 \
     --occ_mask=0.0 \
     --depth_consistency=0.0 \
-	--dense_motion_weight=0.01 \
+	--dense_motion_weight=0.03 \
 	--gpu_id=0 \
     --gpu_fraction=0.4 \
 	--continue_train=True \
