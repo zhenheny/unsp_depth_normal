@@ -8,6 +8,7 @@ import os
 
 flags = tf.app.flags
 flags.DEFINE_string("dataset_dir", "", "Dataset directory")
+flags.DEFINE_string("eval_data_path", "", "Evaluation dataset dir")
 flags.DEFINE_string("checkpoint_dir", "./checkpoints/", "Directory name to save the checkpoints")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam")
 flags.DEFINE_float("beta1", 0.9, "Momentum term of adam")
@@ -31,6 +32,8 @@ flags.DEFINE_integer("eval_freq", 500, "Evaluation every eval_freq iterations")
 flags.DEFINE_integer("save_latest_freq", 5000, \
     "Save the latest model every save_latest_freq iterations (overwrites the previous latest model)")
 flags.DEFINE_boolean("continue_train", False, "Continue training from previous checkpoint")
+flags.DEFINE_boolean("depth4pose", False, "Continue training from previous checkpoint")
+flags.DEFINE_string("rm_var_scope", "None", "the variable scope that remove from continue training")
 flags.DEFINE_string("checkpoint_continue", "", "From which model it continues training")
 flags.DEFINE_string("gpu_id", "0", "GPU id used in training")
 flags.DEFINE_float("gpu_fraction", 0.4, "GPU memoery fraction required")
@@ -47,10 +50,10 @@ def main(_):
 
     pp = pprint.PrettyPrinter()
     pp.pprint(flags.FLAGS.__flags)
-    
+
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
-        
+
     sfm = SfMLearner()
     sfm.train(FLAGS)
 
