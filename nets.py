@@ -25,6 +25,7 @@ def pose_exp_net(tgt_image,
                  do_exp=True,
                  do_dm=True,
                  is_training=True,
+                 reuse=False,
                  in_size=[128, 416]):
 
     with_depth = (tgt_depth is not None) and (src_depth_seq is not None)
@@ -48,7 +49,7 @@ def pose_exp_net(tgt_image,
     batch_norm_params = {'is_training': is_training}
     num_source = len(src_image_seq)
 
-    with tf.variable_scope('motion_net') as sc:
+    with tf.variable_scope('motion_net', reuse=reuse) as sc:
         end_points_collection = sc.original_name_scope + '_end_points'
         with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
                             # normalizer_fn = None,
@@ -193,6 +194,7 @@ def dense_motion_net(tgt_image,
                 pose_pred = slim.conv2d(cnv7, 6*num_source, [1, 1], scope='pred',
                     stride=1, normalizer_fn=None, activation_fn=None)
                 pose_avg = tf.reduce_mean(pose_pred, [1, 2])
+
                 # Empirically we found that scaling by a small constant
                 # facilitates training.
                 pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
@@ -249,13 +251,13 @@ def dense_motion_net(tgt_image,
 
 
 
-def disp_net(tgt_image, is_training=True, do_edge=False):
+def disp_net(tgt_image, is_training=True, do_edge=False, reuse=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
     tgt_image = tf.image.resize_bilinear(tgt_image, [127, 415])
 
-    with tf.variable_scope('depth_net') as sc:
+    with tf.variable_scope('depth_net', reuse=reuse) as sc:
         end_points_collection = sc.original_name_scope + '_end_points'
         with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
                             # normalizer_fn = None,
