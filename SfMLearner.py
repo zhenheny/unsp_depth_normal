@@ -15,6 +15,8 @@ from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
 from evaluate_normal import *
+from bilinear_sampler import bilinear_sampler_1d_h
+
 
 class SfMLearner(object):
     def __init__(self):
@@ -42,6 +44,12 @@ class SfMLearner(object):
         SSIM = SSIM_n / SSIM_d
 
         return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
+
+    def generate_image_left(self, img, disp):
+        return bilinear_sampler_1d_h(img, -disp)
+
+    def generate_image_right(self, img, disp):
+        return bilinear_sampler_1d_h(img, disp)
 
     def build_train_graph(self):
         opt = self.opt
@@ -91,7 +99,7 @@ class SfMLearner(object):
                 raw_cam_mat, opt.num_scales)
 
             # Form training batches
-            src_image_stack, tgt_image, r_images, proj_cam2pix, proj_pix2cam = \
+            src_image_stack, tgt_image, r_image, proj_cam2pix, proj_pix2cam = \
                     tf.train.batch([src_image_stack, tgt_image, r_image_seq, proj_cam2pix, 
                                     proj_pix2cam], batch_size=opt.batch_size)
             print ("tgt_image batch images shape:")
@@ -105,7 +113,7 @@ class SfMLearner(object):
         with tf.name_scope("depth_prediction"):
             pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
                                         do_edge=(opt.edge_mask_weight > 0))
-            pred_depth = [1./d for d in pred_disp]
+            pred_depth = [1./d for d in pred_disp] # the shape of each d is [B, H, W, 2]
 
         with tf.name_scope("pose_and_explainability_prediction"):
             pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
@@ -141,11 +149,13 @@ class SfMLearner(object):
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])                
                 curr_src_image_stack = tf.image.resize_bilinear(src_image_stack, 
                     [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
+                curr_right_image = tf.image.resize_bilinear(r_image,
+                    [int(opt.img_height/(2**s)), int(opt.img_width/(2**s))])
 
                 ## depth2normal and normal2depth at each scale level
                 intrinsic_mtx = proj_cam2pix[:,s,:,:]
                 intrinsics = tf.concat([tf.expand_dims(intrinsic_mtx[:,0,0],1), tf.expand_dims(intrinsic_mtx[:,1,1],1), tf.expand_dims(intrinsic_mtx[:,0,2],1), tf.expand_dims(intrinsic_mtx[:,1,2],1)], 1)
-                pred_depth_tensor = tf.squeeze(pred_depth[s])
+                pred_depth_tensor = tf.squeeze(pred_depth[s][:,:,:,0])
 
                 pred_normal = depth2normal_layer_batch(pred_depth_tensor, intrinsics, depth_inverse)
 
@@ -252,40 +262,25 @@ class SfMLearner(object):
                     # curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
-                    # curr_proj_image_grad_x = inverse_warp(
-                    #     curr_src_image_grad_x[:,:,:,3*i:3*(i+1)], 
-                    #     pred_depth2[:, :-2, 2:-1], 
-                    #     # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                    #     # pred_depth2, 
-                    #     # pred_depth[s], 
-                    #     pred_poses[:,i,:], 
-                    #     proj_cam2pix[:,s,:,:], 
-                    #     proj_pix2cam[:,s,:,:],
-                    #     curr_tgt_image)
-                    # curr_proj_image_grad_y = inverse_warp(
-                    #     curr_src_image_grad_y[:,:,:,3*i:3*(i+1)], 
-                    #     pred_depth2[:, 1:-2, 1:-1], 
-                    #     # curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                    #     # pred_depth2, 
-                    #     # pred_depth[s], 
-                    #     pred_poses[:,i,:], 
-                    #     proj_cam2pix[:,s,:,:], 
-                    #     proj_pix2cam[:,s,:,:],
-                    #     curr_tgt_image)
-                    # curr_proj_error_grad_x, curr_proj_error_grad_y = tf.abs(curr_tgt_image_grad_x-curr_proj_image_grad_x), \
-                    #                                                 tf.abs(curr_tgt_image_grad_y-curr_proj_image_grad_y)
+                    # Warp the image left and right, lr consistency
+                    l_image_est = generate_image_left(curr_right_image, pred_disp[s][:,:,:,0])
+                    r_image_est = generate_image_right(curr_tgt_image, pred_disp[s][:,:,:,1])
 
+                    l_disp_est = generate_image_left(pred_disp[s][:,:,:,1], pred_disp[s][:,:,:,0])
+                    r_disp_est = generate_image_right(pred_disp[s][:,:,:,0], pred_disp[s][:,:,:,1])
 
-                    ## compute smooth losses of both pred_depth and pred_depth2
-                    # curr_proj_image = inverse_warp(
-                    #     curr_src_image_stack[:,:,:,3*i:3*(i+1)], 
-                    #     # pred_depth2, 
-                    #     pred_depth[s], 
-                    #     pred_poses[:,i,:], 
-                    #     proj_cam2pix[:,s,:,:], 
-                    #     proj_pix2cam[:,s,:,:])
-                    # curr_proj_error += tf.abs(curr_proj_image - curr_tgt_image)
-                    # curr_proj_error /= 2.0
+                    l_recon_loss = tf.reduce_mean(tf.abs(l_image_est - curr_tgt_image))
+                    r_recon_loss = tf.reduce_mean(tf.abs(r_image_est - curr_right_image))
+
+                    l_disp_loss = tf.reduce_mean(tf.abs(l_disp_est - pred_disp[s][:,:,:,0]))
+                    r_disp_loss = tf.reduce_mean(tf.abs(r_disp_est - pred_disp[s][:,:,:,1]))
+
+                    pixel_loss += (l_recon_loss+r_recon_loss+l_disp_loss+r_disp_loss)
+
+                    if opt.ssim_weight > 0:
+                        l_ssim_loss = tf.reduce_mean(self.SSIM(l_image_est, curr_tgt_image))
+                        r_ssim_loss = tf.reduce_mean(self.SSIM(r_image_est, curr_right_image))
+                        pixel_loss += (l_ssim_loss + r_ssim_loss)
 
                     # Photo-consistency loss weighted by explainability
                     if opt.explain_reg_weight > 0:
