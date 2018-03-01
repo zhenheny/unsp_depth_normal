@@ -47,7 +47,6 @@ class SfMLearner(object):
         opt = self.opt
         with tf.name_scope("data_loading"):
             seed = random.randint(0, 2**31 - 1)
-            # seed = 654
 
             # Load the list of training files into queues
             file_list = self.format_file_list(opt.dataset_dir, 'train')
@@ -55,18 +54,28 @@ class SfMLearner(object):
                 file_list['image_file_list'], 
                 seed=seed, 
                 shuffle=False)
+            right_image_paths_queue = tf.train.string_input_producer(
+                file_list['right_file_list'], 
+                seed=seed, 
+                shuffle=False)
             cam_paths_queue = tf.train.string_input_producer(
                 file_list['cam_file_list'], 
                 seed=seed, 
                 shuffle=False)
 
-            # Load images
+            # Load sequential images
             img_reader = tf.WholeFileReader()
             _, image_contents = img_reader.read(image_paths_queue)
             image_seq = tf.image.decode_jpeg(image_contents)
             image_seq = self.preprocess_image(image_seq)
             tgt_image, src_image_stack = \
                 self.unpack_image_sequence(image_seq)
+
+            # Load left-right images
+            _, r_image_contents = img_reader.read(right_image_paths_queue)
+            r_image_seq = tf.image.decode_png(r_image_contents)
+            r_image_seq = self.preprocess_image(r_image_seq)
+            r_image_seq.set_shape([opt.img_height, opt.img_width, 3])
 
             # Load camera intrinsics
             cam_reader = tf.TextLineReader()
@@ -82,13 +91,15 @@ class SfMLearner(object):
                 raw_cam_mat, opt.num_scales)
 
             # Form training batches
-            src_image_stack, tgt_image, proj_cam2pix, proj_pix2cam = \
-                    tf.train.batch([src_image_stack, tgt_image, proj_cam2pix, 
+            src_image_stack, tgt_image, r_images, proj_cam2pix, proj_pix2cam = \
+                    tf.train.batch([src_image_stack, tgt_image, r_image_seq, proj_cam2pix, 
                                     proj_pix2cam], batch_size=opt.batch_size)
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
-            print ("src_image_stack shape")
+            print ("src_image_stack shape:")
             print (src_image_stack.get_shape().as_list())
+            print ("right_images shape:")
+            print (r_images.get_shape().as_list())
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
@@ -922,13 +933,19 @@ class SfMLearner(object):
             frames = f.readlines()
         subfolders = [x.split(' ')[0] for x in frames]
         frame_ids = [x.split(' ')[1][:-1] for x in frames]
-        image_file_list = [os.path.join(data_root, subfolders[i], 
+        image_file_list = [os.path.join(data_root, 'eigen_process_832_256', subfolders[i], 
             frame_ids[i] + '.jpg') for i in range(len(frames))]
+        date = [x.split('_drive')[0] for x in frames]
+        folders = [x.split('_sync')[0]+"_sync" for x in frames]
+
+        right_file_list = [os.path.join(data_root, date[i], folders[i], 'image_03/data', 
+            frame_ids[i] + '.png') for i in range(len(frames))]
         cam_file_list = [os.path.join(data_root, subfolders[i], 
             frame_ids[i] + '_cam.txt') for i in range(len(frames))]
         all_list = {}
         all_list['image_file_list'] = image_file_list
         all_list['cam_file_list'] = cam_file_list
+        all_list['right_file_list'] = right_file_list
         return all_list
 
     def save(self, sess, checkpoint_dir, step):
