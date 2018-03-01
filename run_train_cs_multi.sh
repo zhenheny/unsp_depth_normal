@@ -1,11 +1,11 @@
-python3 train.py \
+/opt/python3.5/bin/python3.5 train.py \
     --dataset_dir=/home/peng/Data/cityscapes/frame_seq_832_342/ \
     --eval_data_path=/home/peng/Data/kitti/ \
-	--checkpoint_dir=./output/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs \
-	--eval_txt=ektc_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs.txt \
+	--checkpoint_dir=./output/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs_m \
+	--eval_txt=ektc_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs_m.txt \
 	--img_width=832 \
     --img_height=256 \
-    --batch_size=4 \
+    --batch_size=12 \
 	--smooth_weight=2 \
     --explain_reg_weight=0.0 \
     --edge_mask_weight=0.2 \
@@ -14,8 +14,8 @@ python3 train.py \
     --img_grad_weight=0 \
     --occ_mask=0.0 \
     --depth_consistency=0.0 \
-	--dense_motion_weight=0.03 \
-	--gpu_id=1 \
+	--dense_motion_weight=0.015 \
+	--gpu_id=1,2,3 \
     --gpu_fraction=0.8 \
     --depth4pose=True \
 	--continue_train=True \
