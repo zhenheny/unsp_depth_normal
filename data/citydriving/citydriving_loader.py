@@ -5,12 +5,12 @@ import numpy as np
 import scipy.misc
 from glob import glob
 
-class cityscapes_loader(object):
+class citydriving_loader(object):
     def __init__(self, 
                  dataset_dir,
                  split='train',
-                 crop_bottom=True, # Get rid of the car logo
-                 sample_gap=2,  # Sample every two frames to match KITTI frame rate
+                 crop_bottom=False, # Get rid of the car logo
+                 sample_gap=3,  # Sample every two frames to match KITTI frame rate
                  img_height=171, 
                  img_width=416,
                  seq_length=5):
@@ -23,7 +23,7 @@ class cityscapes_loader(object):
         self.img_width = img_width
         self.seq_length = seq_length
         assert seq_length % 2 != 0, 'seq_length must be odd!'
-        self.frames = self.collect_frames(split)
+        self.frames = self.collect_frames()
         self.num_frames = len(self.frames)
         if split == 'train':
             self.num_train = self.num_frames
@@ -31,14 +31,14 @@ class cityscapes_loader(object):
             self.num_test = self.num_frames
         print('Total frames collected: %d' % self.num_frames)
         
-    def collect_frames(self, split):
-        img_dir = self.dataset_dir + '/leftImg8bit_sequence/' + split + '/'
-        city_list = os.listdir(img_dir)
+    def collect_frames(self):
+        img_dir = self.dataset_dir + '/frames/'
+        video_list = os.listdir(img_dir)
         frames = []
-        for city in city_list:
-            img_files = glob(img_dir + city + '/*.png')
+        for video in city_list:
+            img_files = glob(img_dir + video + '/*.jpg')
             for f in img_files:
-                frame_id = os.path.basename(f).split('leftImg8bit')[0]
+                frame_id = os.path.basename(f)
                 frames.append(frame_id)
         return frames
 
@@ -51,42 +51,36 @@ class cityscapes_loader(object):
         return example
 
     def load_intrinsics(self, frame_id, split):
-        city, seq, _, _ = frame_id.split('_')
-        camera_file = os.path.join(self.dataset_dir, 'camera',
-                                   split, city, city + '_' + seq + '_*_camera.json')
-        camera_file = glob(camera_file)[0]
-        with open(camera_file, 'r') as f: 
-            camera = json.load(f)
-        fx = camera['intrinsic']['fx']
-        fy = camera['intrinsic']['fy']
-        u0 = camera['intrinsic']['u0']
-        v0 = camera['intrinsic']['v0']
+        fx = np.float32(self.img_width)
+        fy = np.float32(self.img_height)
+        u0 = 0.5*fx
+        v0 = 0.5*fy
         intrinsics = np.array([[fx, 0, u0],
                                [0, fy, v0],
                                [0,  0,  1]])
         return intrinsics
 
     def is_valid_example(self, tgt_frame_id):
-        city, snippet_id, tgt_local_frame_id, _ = tgt_frame_id.split('_')
+        _, video_id, tgt_local_frame_id = tgt_frame_id.split('.')[0].split('_')
         half_offset = int((self.seq_length - 1)/2 * self.sample_gap)
         for o in range(-half_offset, half_offset + 1, self.sample_gap):
-            curr_local_frame_id = '%.6d' % (int(tgt_local_frame_id) + o)
-            curr_frame_id = '%s_%s_%s_' % (city, snippet_id, curr_local_frame_id)
-            curr_image_file = os.path.join(self.dataset_dir, 'leftImg8bit_sequence', 
-                                self.split, city, curr_frame_id + 'leftImg8bit.png')
+            curr_local_frame_id = '%08d' % (int(tgt_local_frame_id) + o)
+            curr_frame_id = 'video_%s_%s' % (video_id, curr_local_frame_id)
+            curr_image_file = os.path.join(self.dataset_dir, 'frames/video_'+video_id, 
+                                 curr_frame_id+".jpg")
             if not os.path.exists(curr_image_file):
                 return False
         return True
 
     def load_image_sequence(self, tgt_frame_id, seq_length, crop_bottom):
-        city, snippet_id, tgt_local_frame_id, _ = tgt_frame_id.split('_')
+        _, video_id, tgt_local_frame_id = tgt_frame_id.split('.')[0].split('_')
         half_offset = int((self.seq_length - 1)/2 * self.sample_gap)
         image_seq = []
         for o in range(-half_offset, half_offset + 1, self.sample_gap):
-            curr_local_frame_id = '%.6d' % (int(tgt_local_frame_id) + o)
-            curr_frame_id = '%s_%s_%s_' % (city, snippet_id, curr_local_frame_id)
-            curr_image_file = os.path.join(self.dataset_dir, 'leftImg8bit_sequence', 
-                                self.split, city, curr_frame_id + 'leftImg8bit.png')
+            curr_local_frame_id = '%08d' % (int(tgt_local_frame_id) + o)
+            curr_frame_id = 'video_%s_%s' % (video_id, curr_local_frame_id)
+            curr_image_file = os.path.join(self.dataset_dir, 'frames/video_'+video_id, 
+                                 curr_frame_id+".jpg")
             curr_img = scipy.misc.imread(curr_image_file)
             raw_shape = np.copy(curr_img.shape)
             if o == 0:
@@ -102,12 +96,12 @@ class cityscapes_loader(object):
     def load_example(self, tgt_frame_id, load_gt_pose=False):
         image_seq, zoom_x, zoom_y = self.load_image_sequence(tgt_frame_id, self.seq_length, self.crop_bottom)
         intrinsics = self.load_intrinsics(tgt_frame_id, self.split)
-        intrinsics = self.scale_intrinsics(intrinsics, zoom_x, zoom_y)
+
         example = {}
         example['intrinsics'] = intrinsics
         example['image_seq'] = image_seq
-        example['folder_name'] = tgt_frame_id.split('_')[0]
-        example['file_name'] = tgt_frame_id[:-1]
+        example['folder_name'] = "video_"+tgt_frame_id.split('.')[0].split('_')[1]
+        example['file_name'] = tgt_frame_id[:-4]
         return example
 
     def scale_intrinsics(self, mat, sx, sy):

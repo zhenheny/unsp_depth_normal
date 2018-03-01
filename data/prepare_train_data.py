@@ -84,16 +84,18 @@ def main():
         data_loader = cityscapes_loader(args.dataset_dir,
                                         img_height=args.img_height,
                                         img_width=args.img_width,
-                                        seq_length=args.seq_length)
-        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)
+                                        seq_length=args.seq_length,
+                                        sample_gap = args.sample_gap)
+        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)+"_gap"+str(args.sample_gap)
 
     if args.dataset_name == 'citydriving':
         from citydriving.citydriving_loader import citydriving_loader
         data_loader = citydriving_loader(args.dataset_dir,
                                         img_height=args.img_height,
                                         img_width=args.img_width,
-                                        seq_length=args.seq_length)
-        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)
+                                        seq_length=args.seq_length,
+                                        sample_gap = args.sample_gap)
+        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)+"_gap"+str(args.sample_gap)
 
     if args.dataset_name == "nyuv2":
         from nyuv2.nyuv2_loader import nyuv2_loader
