@@ -904,22 +904,23 @@ class SfMLearner(object):
             pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
             
-            c_pose, _, dense_motions, _ = pose_exp_net(input_mc[:1,:,:,:], input_mc[1:,:,:,:], pred_depths2[:1,:,:,], pred_depths2[1:,:,:,])
+            c_pose, _, dense_motions, _ = nets.pose_exp_net(input_mc[:1,:,:,:], [input_mc[1:,:,:,:]], 
+                                                    pred_depths2[:1,:,:,None], [pred_depths2[1:,:,:,None]])
 
-            print("shape of pred_depths2_avg")
-            print(pred_depths2_avg.shape)
+            print("shape of pred_depths2")
+            print(pred_depths2.shape)
             print("shape of pred_normal")
             print(pred_normal.shape)
             print("shape of c_pose:")
             print(c_pose.shape)
             print("shape of dense_motions:")
-            print(dense_motions.shape)
+            print(dense_motions[0].shape)
 
         self.inputs = input_uint8
         self.input_intrinsics = intrinsics
         self.pred_edges_test = pred_edges
         self.pred_depth_test = pred_depth[0]
-        self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
+        self.pred_depth2_test = tf.expand_dims(pred_depths2, axis=-1)
         self.pred_normal_test = pred_normal
         self.pred_disp_test = pred_disp
         self.pred_c_pose = c_pose
@@ -989,6 +990,26 @@ class SfMLearner(object):
             else:
                 results = sess.run(fetches, feed_dict={self.inputs:inputs})
         return results
+
+        self.inputs = input_uint8
+        self.input_intrinsics = intrinsics
+        self.pred_edges_test = pred_edges
+        self.pred_depth_test = pred_depth[0]
+        self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
+        self.pred_normal_test = pred_normal
+        self.pred_disp_test = pred_disp
+        self.pred_c_pose = c_pose
+        self.pred_dense_motions = dense_motions
+        self.depth_epts = depth_net_endpoints
+
+    def inference_pair(self, inputs, intrinsics, sess, mode='depth'):
+        fetches = {}
+        fetches['depth2'] = self.pred_depth2_test
+        fetches['c_pose'] = self.pred_c_pose
+        fetches['dense_motions'] = self.pred_dense_motions
+        results = sess.run(fetches, feed_dict = {self.inputs:inputs, self.input_intrinsics:intrinsics})
+        return results
+
 
     def unpack_image_sequence(self, image_seq):
         opt = self.opt

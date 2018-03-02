@@ -84,8 +84,9 @@ def main():
         data_loader = cityscapes_loader(args.dataset_dir,
                                         img_height=args.img_height,
                                         img_width=args.img_width,
-                                        seq_length=args.seq_length)
-        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)
+                                        seq_length=args.seq_length,
+                                        sample_gap = args.sample_gap)
+        dump_root = args.dataset_dir+"/frame_seq_"+str(args.img_width)+"_"+str(args.img_height)+"_gap"+str(args.sample_gap)
 
     if args.dataset_name == "nyuv2":
         from nyuv2.nyuv2_loader import nyuv2_loader
@@ -101,7 +102,7 @@ def main():
     if not os.path.exists(args.dump_root):
         os.makedirs(args.dump_root)
 
-    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(data_loader.num_train))
+    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n) for n in range(88000, data_loader.num_train))
 
     # Split into train/val
     np.random.seed(8964)

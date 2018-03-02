@@ -31,7 +31,7 @@ def test_image_pair(filenames, ckpt_file):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333) 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         saver.restore(sess, ckpt_file)
-        pred = sfm.inference(I, intrinsic, sess, mode=mode)
+        pred = sfm.inference_pair(I, intrinsic, sess, mode=mode)
 
 def test_image(filename):
 
@@ -161,6 +161,7 @@ if __name__ == "__main__":
     parser.add_argument('--ckpt_file', type=str, help='model checkpoint', required=True, default='models/model-145248')
     parser.add_argument('--type',  type=str, help='test type, img or filelist', default='filelist')
     parser.add_argument('--eval_depth_bool', type=bool, help="evaluate the depth estimation based on standard metrics", default=False)
+    parser.add_argument('--eval_dm', type=bool, help='evaluate dense motion', default=False)
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu_id
@@ -184,6 +185,11 @@ if __name__ == "__main__":
                 for line in f:
                     filelist.append("/home/zhenheng/datasets/make3d/test_imgs/"+line.rstrip())
         test_filelist(filelist, args.split, args.eval_depth_bool, args.ckpt_file)
+
+    elif args.eval_dm:
+        filenames = ['000000_10.png', '000000_11.png']
+        test_image_pair(filenames, args.ckpt_file)
+
     else:
         filename = "example_detect.png"
         test_image(filename)
