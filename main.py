@@ -23,7 +23,8 @@ def test_image_pair(filenames, ckpt_file):
     I = np.concatenate([image1[None,:,:,:], image2[None,:,:,:]], axis=0)
 
     sfm = SfMLearner()
-    sfm.setup_inference_pair(img_height, img_width, batch_size=2)
+    with tf.variable_scope("training"):
+        sfm.setup_inference_pair(img_height, img_width, batch_size=2)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()])
     intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
@@ -31,7 +32,10 @@ def test_image_pair(filenames, ckpt_file):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333) 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         saver.restore(sess, ckpt_file)
-        pred = sfm.inference_pair(I, intrinsic, sess, mode=mode)
+        pred = sfm.inference_pair(I, intrinsic, sess)
+        np.save('../depth2.npy', pred['depth2'])
+        np.save('../cpose.npy', pred['c_pose'])
+        np.save('../dm.npy',pred['dense_motions'][0])
 
 def test_image(filename):
 
@@ -48,7 +52,8 @@ def test_image(filename):
     I = scipy.misc.imresize(I, (img_height, img_width))
 
     sfm = SfMLearner()
-    sfm.setup_inference(img_height, img_width, mode=mode)
+    with tf.variable_scope("training"):
+        sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()])
     intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]

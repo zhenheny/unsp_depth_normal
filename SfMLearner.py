@@ -905,7 +905,7 @@ class SfMLearner(object):
             pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
             
             c_pose, _, dense_motions, _ = nets.pose_exp_net(input_mc[:1,:,:,:], [input_mc[1:,:,:,:]], 
-                                                    pred_depths2[:1,:,:,None], [pred_depths2[1:,:,:,None]])
+                                                    pred_depths2[:1,:,:,None], [pred_depths2[1:,:,:,None]], do_exp=False)
 
             print("shape of pred_depths2")
             print(pred_depths2.shape)
