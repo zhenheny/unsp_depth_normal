@@ -891,6 +891,41 @@ class SfMLearner(object):
         self.pred_disp_test = pred_disp
         self.depth_epts = depth_net_endpoints
 
+    def build_depth_normal_test_pair_graph(self):
+        input_uint8 = tf.placeholder(tf.uint8, [self.batch_size,
+                    self.img_height, self.img_width, 3], name='raw_input')
+        intrinsics = tf.placeholder(tf.float32, [self.batch_size, 4])
+
+        input_mc = self.preprocess_image(input_uint8)
+        # with tf.variable_scope('training', reuse=True):
+        with tf.name_scope("depth_prediction"):
+            pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(input_mc, do_edge=True)
+            pred_depth = [1./disp for disp in pred_disp]
+            pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
+            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
+            
+            c_pose, _, dense_motions, _ = pose_exp_net(input_mc[:1,:,:,:], input_mc[1:,:,:,:], pred_depths2[:1,:,:,], pred_depths2[1:,:,:,])
+
+            print("shape of pred_depths2_avg")
+            print(pred_depths2_avg.shape)
+            print("shape of pred_normal")
+            print(pred_normal.shape)
+            print("shape of c_pose:")
+            print(c_pose.shape)
+            print("shape of dense_motions:")
+            print(dense_motions.shape)
+
+        self.inputs = input_uint8
+        self.input_intrinsics = intrinsics
+        self.pred_edges_test = pred_edges
+        self.pred_depth_test = pred_depth[0]
+        self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
+        self.pred_normal_test = pred_normal
+        self.pred_disp_test = pred_disp
+        self.pred_c_pose = c_pose
+        self.pred_dense_motions = dense_motions
+        self.depth_epts = depth_net_endpoints
+
     def build_depth_test_graph(self):
         input_uint8 = tf.placeholder(tf.uint8, [self.batch_size,
                     self.img_height, self.img_width, 3], name='raw_input')
@@ -928,6 +963,18 @@ class SfMLearner(object):
         self.batch_size = batch_size
         if self.mode == 'depth':
             self.build_depth_normal_test_graph()
+
+    def setup_inference_pair(self,
+                        img_height,
+                        img_width,
+                        mode='depth',
+                        batch_size=1):
+        self.img_height = img_height
+        self.img_width = img_width
+        self.mode = mode
+        self.batch_size = batch_size
+        if self.mode == 'depth':
+            self.build_depth_normal_test_pair_graph()
 
     def inference(self, inputs, intrinsics, sess, mode='depth'):
         fetches = {}

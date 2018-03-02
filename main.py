@@ -12,6 +12,26 @@ from evaluate_kitti import *
 from evaluate_normal import *
 from utils import *
 
+def test_image_pair(filenames, ckpt_file):
+
+    img_height, img_width = 256, 832
+    img_path = "/home/zhenheng/datasets/kitti/training/image_2/"
+    image1 = scipy.misc.imread(img_path+filenames[0])
+    image2 = scipy.misc.imread(img_path+filenames[1])
+    image1 = scipy.misc.imresize(image1, (img_height, img_width))
+    image2 = scipy.misc.imresize(image2, (img_height, img_width))
+    I = np.concatenate([image1[None,:,:,:], image2[None,:,:,:]], axis=0)
+
+    sfm = SfMLearner()
+    sfm.setup_inference_pair(img_height, img_width, batch_size=2)
+
+    saver = tf.train.Saver([var for var in tf.trainable_variables()])
+    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
+    intrinsic = np.tile(intrinsic, [2,1])
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333) 
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+        saver.restore(sess, ckpt_file)
+        pred = sfm.inference(I, intrinsic, sess, mode=mode)
 
 def test_image(filename):
 
