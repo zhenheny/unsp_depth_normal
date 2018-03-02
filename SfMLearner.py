@@ -143,6 +143,7 @@ class SfMLearner(object):
                 # normal depth2 to avoid corner case of preddepth2=0
                 # pred_disp2 = 1.0 / (pred_depth2 - tf.reduce_min(pred_depth2) + 1e-2)
                 pred_disp2 = 1.0 / pred_depth2
+                pred_disp2 /= tf.reduce_mean(pred_disp2)
 
                 # # print (pred_depth2.shape)
 
