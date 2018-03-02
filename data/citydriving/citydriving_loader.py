@@ -4,6 +4,7 @@ import os
 import numpy as np
 import scipy.misc
 from glob import glob
+import random
 
 class citydriving_loader(object):
     def __init__(self, 
@@ -39,7 +40,9 @@ class citydriving_loader(object):
             img_files = glob(img_dir + video + '/*.jpg')
             for f in img_files:
                 frame_id = os.path.basename(f)
-                frames.append(frame_id)
+                rand_num = random.uniform(0,1)
+                if rand_num <= 0.02:
+                    frames.append(frame_id)
         return frames
 
     def get_train_example_with_idx(self, tgt_idx):
