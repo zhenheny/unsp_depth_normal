@@ -2,6 +2,7 @@ from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+import pdb
 
 def gray2rgb(im, cmap='gray'):
     cmap = plt.get_cmap(cmap)
@@ -42,6 +43,7 @@ def pose_vec2mat(vec):
     transform_mat = tf.concat([rot_mat, translation], axis=2)
     transform_mat = tf.concat([transform_mat, filler], axis=1)
     return transform_mat
+
 
 def euler2mat(z, y, x):
     """Converts euler angles to rotation matrix
@@ -94,12 +96,101 @@ def euler2mat(z, y, x):
     rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
     return rotMat
 
-def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, target_image):
+
+
+
+def pixel2cam(depth, pixel_coords, intrinsics_inv):
+    """Transform coordinates in the pixel frame to the camera frame"""
+    cam_coords = tf.matmul(intrinsics_inv, pixel_coords) * depth
+    return cam_coords
+
+def meshgrid_abs(height, width):
+    """Meshgrid in the absolute coordinates"""
+    x_t = tf.matmul(tf.ones(shape=tf.stack([height, 1])),
+                    tf.transpose(tf.expand_dims(tf.linspace(-1.0, 1.0, width), 1), [1, 0]))
+    y_t = tf.matmul(tf.expand_dims(tf.linspace(-1.0, 1.0, height), 1),
+                    tf.ones(shape=tf.stack([1, width])))
+
+    x_t = (x_t + 1.0) * 0.5 * tf.cast(width, tf.float32)
+    y_t = (y_t + 1.0) * 0.5 * tf.cast(height, tf.float32)
+    x_t_flat = tf.reshape(x_t, (1, -1))
+    y_t_flat = tf.reshape(y_t, (1, -1))
+
+    ones = tf.ones_like(x_t_flat)
+    grid = tf.concat([x_t_flat, y_t_flat, ones], axis=0)
+    return grid
+
+
+def forward_depth(depth,
+                  pose_mat,
+                  intrinsics,
+                  intrinsics_inv):
+    """Recalculate the depth at each pixel after transforming
+        with pose
+
+        Returns:
+            Source depth recalculated after transform
+    """
+
+    batch_size, img_height, img_width, _ = depth.get_shape().as_list()
+
+    depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
+    grid = meshgrid_abs(img_height, img_width) # shape of [3, H*W]
+    grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1]) # shape of [B, 3, H*W]
+    cam_coords = pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
+    ones = tf.ones([batch_size, 1, img_height*img_width])
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1) # [B, 4, HW]
+
+    # Get projection matrix for tgt camera frame to source pixel frame
+    hom_filler = tf.constant([0.0, 0.0, 0.0, 1.0], shape=[1, 1, 4])
+    hom_filler = tf.tile(hom_filler, [batch_size, 1, 1])
+    intrinsics = tf.concat([intrinsics, tf.zeros([batch_size, 3, 1])], axis=2)
+    intrinsics = tf.concat([intrinsics, hom_filler], axis=1)
+    proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat) # shape [B, 4, 4]
+    pcoords = tf.matmul(proj_cam_to_src_pixel, cam_coords_hom) #[B, 4, 4], [B, 4, HW]
+    depth_new = tf.slice(pcoords, [0, 2, 0], [-1, 1, -1])
+    depth_new = tf.reshape(depth_new,
+                  [batch_size, img_height, img_width, 1])
+
+    return depth_new
+
+
+def inverse_depth(depth_tgt,
+                  depth_src,
+                  pose,
+                  intrinsics,
+                  intrinsics_inv):
+    """ Inverse warp a depth from
+    """
+
+    pose_mat = pose_vec2mat(pose)
+    pose_mat_inv = tf.matrix_inverse(pose_mat)
+
+    depth_after_pose = forward_depth(
+            depth_src, pose_mat_inv,
+            intrinsics, intrinsics_inv)
+
+    depth_proj_tgt, _ = inverse_warp(
+            depth_after_pose,
+            depth_tgt,
+            pose_mat,
+            intrinsics,
+            intrinsics_inv,
+            depth_tgt)
+
+    return depth_proj_tgt
+
+
+def inverse_warp(img, depth, pose,
+                 intrinsics,
+                 intrinsics_inv,
+                 target_image,
+                 dense_motion=None):
     """Inverse warp a source image to the target image plane
        Part of the code modified from
        https://github.com/tensorflow/models/blob/master/transformer/spatial_transformer.py
     Args:
-        img: the source image (where to sample pixels) -- [B, H, W, 3]
+        img: the source image (where to sample pixels) -- [B, H, W, *]
         depth: depth map of the target image -- [B, H, W]
         pose: 6DoF pose parameters from target to source -- [B, 6]
         dense_motion: dense_motion_map for each source image -- [B, H, W, 3]
@@ -275,88 +366,6 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
             target_flat = tf.reshape(target, tf.stack([-1, channels]))
             target_flat = tf.cast(target_flat, 'float32')
 
-            # def helper(x0_, x1_, y0_, y1_, x_range, y_range):
-            #     scale = min(x_range, y_range)
-            #     scale_area = x_range * y_range / (scale*scale)
-
-            #     x0_c = tf.clip_by_value(x0_, zero, max_x)
-            #     x1_c = tf.clip_by_value(x1_, zero, max_x)
-
-            #     y0_c = tf.clip_by_value(y0_, zero, max_y)
-            #     y1_c = tf.clip_by_value(y1_, zero, max_y)
-
-            #     base_y0 = base + y0_c*dim2
-            #     base_y1 = base + y1_c*dim2
-
-            #     idx_a = base_y0 + x0_c
-            #     idx_b = base_y1 + x0_c
-            #     idx_c = base_y0 + x1_c
-            #     idx_d = base_y1 + x1_c
-
-            #     Ia = tf.gather(im_flat, idx_a)
-            #     Ib = tf.gather(im_flat, idx_b)
-            #     Ic = tf.gather(im_flat, idx_c)
-            #     Id = tf.gather(im_flat, idx_d)
-
-            #     # and finally calculate interpolated values
-            #     x0_f = tf.cast(x0_, 'float32')
-            #     x1_f = tf.cast(x1_, 'float32')
-            #     y0_f = tf.cast(y0_, 'float32')
-            #     y1_f = tf.cast(y1_, 'float32')
-
-            #     x_mid = (x0_f + x1_f) / 2.0
-            #     y_mid = (y0_f + y1_f) / 2.0
-
-            #     x0_f = (x0_f - x_mid) / scale + x_mid
-            #     x1_f = (x1_f - x_mid) / scale + x_mid
-            #     y0_f = (y0_f - y_mid) / scale + y_mid
-            #     y1_f = (y1_f - y_mid) / scale + y_mid
-
-            #     wa = tf.expand_dims(((x1_f-x) * (y1_f-y) / scale_area), 1)
-            #     wb = tf.expand_dims(((x1_f-x) * (y-y0_f) / scale_area), 1)
-            #     wc = tf.expand_dims(((x-x0_f) * (y1_f-y) / scale_area), 1)
-            #     wd = tf.expand_dims(((x-x0_f) * (y-y0_f) / scale_area), 1)
-            #     output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
-            #     return output, [tf.expand_dims(Ia, axis=-1),
-            #                   tf.expand_dims(Ib, axis=-1),
-            #                   tf.expand_dims(Ic, axis=-1),
-            #                   tf.expand_dims(Id, axis=-1)]
-
-            # output1, v1 = helper(x0, x1, y0, y1, 1.0, 1.0)
-            # output2, v2 = helper(x0, x1, yn1, y2, 1.0, 3.0)
-            # output3, v3 = helper(xn1, x2, y0, y1, 3.0, 1.0)
-            # output4, v4 = helper(xn1, x2, yn1, y2, 3.0, 3.0)
-
-            # output5, v5 = helper(xn2, x3, yn2, y3, 5.0, 5.0)
-            # output6, v6 = helper(x0, x1, yn2, y3, 1.0, 5.0)
-            # output7, v7 = helper(xn1, x2, yn2, y3, 3.0, 5.0)
-            # output8, v8 = helper(xn2, x3, y0, y1, 5.0, 1.0)
-            # output9, v9 = helper(xn2, x3, yn1, y2, 5.0, 3.0)
-
-            # output10, v10 = helper(xn3, x4, yn3, y4, 7.0, 7.0)
-            # output11, v11 = helper(xn3, x4, yn1, y2, 7.0, 3.0)
-            # output12, v12 = helper(xn1, x2, yn3, y4, 3.0, 7.0)
-
-
-            # candidates = tf.concat(v1+v2+v3+v4+v5+v6+v7+v8+v9+v10+v11+v12, axis=2)
-
-            # idx = tf.argmin(tf.reduce_mean(tf.abs(candidates - tf.expand_dims(target_flat, axis=-1)), axis=1, keep_dims=True), axis=2)
-            # idx = tf.tile(idx, [1, channels])
-
-            # error_small_pred = tf.tile(tf.reduce_mean(tf.abs(output1 - target_flat), axis=1, keep_dims=True), [1, channels]) < 0.1
-
-            # output = tf.where(tf.logical_or(error_small_pred, tf.logical_and(idx>=0, idx<4)), output1,
-            #                 tf.where(tf.logical_and(idx>=4, idx<8), output2,
-            #                 tf.where(tf.logical_and(idx>=8, idx<12), output3,
-            #                 tf.where(tf.logical_and(idx>=12, idx<16), output4,
-            #                 tf.where(tf.logical_and(idx>=16, idx<20), output5,
-            #                 tf.where(tf.logical_and(idx>=20, idx<24), output6,
-            #                 tf.where(tf.logical_and(idx>=24, idx<28), output7,
-            #                 tf.where(tf.logical_and(idx>=28, idx<32), output8,
-            #                 tf.where(tf.logical_and(idx>=32, idx<36), output9,
-            #                 tf.where(tf.logical_and(idx>=36, idx<40), output10,
-            #                 tf.where(tf.logical_and(idx>=40, idx<44), output11, output12)))))))))))
-
             def helper(x0_, x1_, y0_, y1_, scale):
                 x0_c = tf.clip_by_value(x0_, zero, max_x)
                 x1_c = tf.clip_by_value(x1_, zero, max_x)
@@ -493,7 +502,8 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
         """Spatial transforming the values in 'img' with bilinear sampling based on
           coordinates specified in 'coords'. This is just a wrapper of '_interpolate()'
           to take absolute coordinates as input.
-          """
+        """
+
         img_height = tf.cast(tf.shape(img)[1], tf.float32)
         img_width = tf.cast(tf.shape(img)[2], tf.float32)
         img_channels = img.get_shape().as_list()[3]
@@ -510,13 +520,14 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
         px = tf.clip_by_value(px/img_width*2.0 - 1.0, -1.0, 1.0)
         py = tf.clip_by_value(py/img_height*2.0 - 1.0, -1.0, 1.0)
         out_img = _interpolate(img, px, py, 'spatial_transformer')
-        out_size = tf.shape(target_image)[1:3]
+
+        # out_size = tf.shape(target_image)[1:3]
         # print("shape of out image:")
         # print(out_img.get_shape().as_list())
         # out_img = _interpolate_ms(img, px, py, out_size, target_image, 'spatial_transformer')
 
         # the flyout part in out_image should be replaced with the same part in target image
-        out_img = target_image*flyout_mask + out_img*(1.0-flyout_mask)
+        out_img = target_image * flyout_mask + out_img * (1.0-flyout_mask)
         return out_img, flyout_mask
 
     dims = tf.shape(img)
@@ -524,16 +535,16 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     depth = tf.reshape(depth, [batch_size, 1, img_height*img_width])
     grid = _meshgrid_abs(img_height, img_width)
     grid = tf.tile(tf.expand_dims(grid, 0), [batch_size, 1, 1])
-    dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
-    dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
-    # dense_motion = tf.concat([dense_motion[:,:1,:],tf.zeros([batch_size,1,img_height*img_width]),dense_motion[:,-1:,:]],axis=1)
     cam_coords = _pixel2cam(depth, grid, intrinsics_inv) # shape of [B, 3, HW]
-    shifted_cam_coords = cam_coords+dense_motion
     ones = tf.ones([batch_size, 1, img_height*img_width])
+    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
 
     ## two cam_coords to warp the source image twice
-    shifted_cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
-    cam_coords_hom = tf.concat([cam_coords, ones], axis=1)
+    if dense_motion is not None:
+        dense_motion = tf.transpose(dense_motion, [0,3,1,2]) # from [B,H,W,3] to [B,3,H,W]
+        dense_motion = tf.reshape(dense_motion, [batch_size, 3, img_height*img_width])
+        shifted_cam_coords = cam_coords + dense_motion
+        shifted_cam_coords_hom = tf.concat([shifted_cam_coords, ones], axis=1)
 
     if len(pose.get_shape().as_list()) == 3:
         pose_mat = pose
@@ -548,18 +559,24 @@ def inverse_warp(img, depth, pose, dense_motion, intrinsics, intrinsics_inv, tar
     proj_cam_to_src_pixel = tf.matmul(intrinsics, pose_mat)
 
     src_pixel_coords = _cam2pixel(cam_coords_hom, proj_cam_to_src_pixel)
-    shifted_src_pixel_coords = _cam2pixel(shifted_cam_coords_hom, proj_cam_to_src_pixel)
     src_pixel_coords = tf.reshape(src_pixel_coords,
                                 [batch_size, 2, img_height, img_width])
-    shifted_src_pixel_coords = tf.reshape(shifted_src_pixel_coords,
-                                [batch_size, 2, img_height, img_width])
     src_pixel_coords = tf.transpose(src_pixel_coords, perm=[0,2,3,1])
-    shifted_src_pixel_coords = tf.transpose(shifted_src_pixel_coords, perm=[0,2,3,1])
+
     projected_img, flyout_mask = _spatial_transformer(img, src_pixel_coords, target_image)
 
-    shifted_projected_img, shifted_flyout_mask = _spatial_transformer(img, shifted_src_pixel_coords, target_image)
+    if dense_motion is not None:
+        shifted_src_pixel_coords = _cam2pixel(shifted_cam_coords_hom, proj_cam_to_src_pixel)
+        shifted_src_pixel_coords = tf.reshape(shifted_src_pixel_coords,
+                                    [batch_size, 2, img_height, img_width])
+        shifted_src_pixel_coords = tf.transpose(shifted_src_pixel_coords, perm=[0,2,3,1])
 
-    return projected_img, shifted_projected_img, flyout_mask
+        shifted_projected_img, shifted_flyout_mask = _spatial_transformer(img, shifted_src_pixel_coords, target_image)
+
+        return projected_img, shifted_projected_img, flyout_mask
+
+    else:
+        return projected_img, flyout_mask
 
 
 
