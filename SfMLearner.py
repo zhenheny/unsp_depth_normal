@@ -83,6 +83,7 @@ class SfMLearner(object):
             _, r_image_contents = img_reader.read(right_image_paths_queue)
             r_image_seq = tf.image.decode_png(r_image_contents)
             r_image_seq = self.preprocess_image(r_image_seq)
+            r_image_seq = tf.squeeze(tf.image.resize_bilinear(r_image_seq[None,:,:,:], [opt.img_height, opt.img_width]))
             r_image_seq.set_shape([opt.img_height, opt.img_width, 3])
 
             # Load camera intrinsics
@@ -107,7 +108,7 @@ class SfMLearner(object):
             print ("src_image_stack shape:")
             print (src_image_stack.get_shape().as_list())
             print ("right_images shape:")
-            print (r_images.get_shape().as_list())
+            print (r_image.get_shape().as_list())
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
@@ -263,17 +264,17 @@ class SfMLearner(object):
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
                     # Warp the image left and right, lr consistency
-                    l_image_est = generate_image_left(curr_right_image, pred_disp[s][:,:,:,0])
-                    r_image_est = generate_image_right(curr_tgt_image, pred_disp[s][:,:,:,1])
+                    l_image_est = self.generate_image_left(curr_right_image, pred_disp[s][:,:,:,0])
+                    r_image_est = self.generate_image_right(curr_tgt_image, pred_disp[s][:,:,:,1])
 
-                    l_disp_est = generate_image_left(pred_disp[s][:,:,:,1], pred_disp[s][:,:,:,0])
-                    r_disp_est = generate_image_right(pred_disp[s][:,:,:,0], pred_disp[s][:,:,:,1])
+                    l_disp_est = self.generate_image_left(pred_disp[s][:,:,:,1:], pred_disp[s][:,:,:,0])
+                    r_disp_est = self.generate_image_right(pred_disp[s][:,:,:,:1], pred_disp[s][:,:,:,1])
 
                     l_recon_loss = tf.reduce_mean(tf.abs(l_image_est - curr_tgt_image))
                     r_recon_loss = tf.reduce_mean(tf.abs(r_image_est - curr_right_image))
 
-                    l_disp_loss = tf.reduce_mean(tf.abs(l_disp_est - pred_disp[s][:,:,:,0]))
-                    r_disp_loss = tf.reduce_mean(tf.abs(r_disp_est - pred_disp[s][:,:,:,1]))
+                    l_disp_loss = tf.reduce_mean(tf.abs(l_disp_est - pred_disp[s][:,:,:,:1]))
+                    r_disp_loss = tf.reduce_mean(tf.abs(r_disp_est - pred_disp[s][:,:,:,1:]))
 
                     pixel_loss += (l_recon_loss+r_recon_loss+l_disp_loss+r_disp_loss)
 
@@ -588,8 +589,8 @@ class SfMLearner(object):
         # for s in range(opt.num_scales):
         s = 0
         tf.summary.histogram("scale%d_depth" % s, self.pred_depth[s])
-        tf.summary.image('scale%d_depth_image' % s, self.pred_depth[s])
-        tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s])
+        tf.summary.image('scale%d_depth_image' % s, self.pred_depth[s][:,:,:,:1])
+        tf.summary.image('scale%d_disparity_image' % s, 1./self.pred_depth[s][:,:,:,:1])
         tf.summary.image('scale%d_target_image' % s, \
                          self.deprocess_image(self.tgt_image_all[s]))
         tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
@@ -708,7 +709,7 @@ class SfMLearner(object):
 
                 if step % opt.eval_freq == 0:
                     with tf.name_scope("evaluation"):
-                        dataset_name = opt.dataset_dir.split("/")[-2]
+                        dataset_name = opt.dataset_dir.split("/")[-1]
 
                         ## evaluation for kitti dataset
                         if dataset_name in ["kitti",'cityscapes']:
@@ -809,8 +810,8 @@ class SfMLearner(object):
         with tf.name_scope("depth_prediction"):
             pred_disp, pred_edges, depth_net_endpoints = disp_net(input_mc, do_edge=True)
             pred_depth = [1./disp for disp in pred_disp]   
-            pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
-            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
+            pred_normal = depth2normal_layer_batch(tf.squeeze(pred_depth[0][:,:,:,:1], axis=3), intrinsics, False)
+            pred_depths2 = normal2depth_layer_batch(tf.squeeze(pred_depth[0][:,:,:,:1], axis=3), pred_normal, intrinsics, input_mc, nei=1)
             pred_depths2_avg = pred_depths2
             # pred_depths2_avg = tf.reduce_mean([pred_depths2[i] for i in range(len(pred_depths2))], axis=0)
             print("shape of pred_depths2_avg")
@@ -820,7 +821,7 @@ class SfMLearner(object):
         self.inputs = input_uint8
         self.input_intrinsics = intrinsics
         self.pred_edges_test = pred_edges
-        self.pred_depth_test = pred_depth[0]
+        self.pred_depth_test = pred_depth[0][:,:,:,:1]
         self.pred_depth2_test = tf.expand_dims(pred_depths2_avg, axis=-1)
         self.pred_normal_test = pred_normal
         self.pred_disp_test = pred_disp
@@ -924,7 +925,7 @@ class SfMLearner(object):
         return proj_cam2pix, proj_pix2cam
 
     def format_file_list(self, data_root, split):
-        with open(data_root + '/%s.txt' % split, 'r') as f:
+        with open(data_root + '/%s.txt' % "train_files_kitti_stereo", 'r') as f:
             frames = f.readlines()
         subfolders = [x.split(' ')[0] for x in frames]
         frame_ids = [x.split(' ')[1][:-1] for x in frames]
@@ -935,7 +936,7 @@ class SfMLearner(object):
 
         right_file_list = [os.path.join(data_root, date[i], folders[i], 'image_03/data', 
             frame_ids[i] + '.png') for i in range(len(frames))]
-        cam_file_list = [os.path.join(data_root, subfolders[i], 
+        cam_file_list = [os.path.join(data_root, 'eigen_process_832_256', subfolders[i], 
             frame_ids[i] + '_cam.txt') for i in range(len(frames))]
         all_list = {}
         all_list['image_file_list'] = image_file_list
