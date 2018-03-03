@@ -344,6 +344,7 @@ class SfMLearner(object):
 
                     if opt.img_grad_weight > 0:
                         curr_proj_image_grad_x, curr_proj_image_grad_y = self.gradient(curr_proj_image[:, :-2, 1:-1, :])
+                        curr_tgt_image_grad_x, curr_tgt_image_grad_y = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
                         curr_proj_error_grad_x, curr_proj_error_grad_y = tf.abs(curr_tgt_image_grad_x-curr_proj_image_grad_x), \
                                                                 tf.abs(curr_tgt_image_grad_y-curr_proj_image_grad_y)
                         # img_grad_loss += opt.img_grad_weight * tf.reduce_mean(curr_proj_error_grad_x * \
@@ -569,7 +570,7 @@ class SfMLearner(object):
                           # tf.reduce_mean(tf.clip_by_value(dydx * weight_y[:,1:,1:,:], 0.0, 10.0))
         if mode == "l1":
             smoothness_loss = tf.reduce_mean(tf.abs(disp_grad_x * weight_x[:,:,1:,:])) + \
-                          tf.reduce_mean(tf.abs(disp_grad_y * weight_y[:,1:,:,:]))
+                              tf.reduce_mean(tf.abs(disp_grad_y * weight_y[:,1:,:,:]))
 
         return smoothness_loss
 
@@ -799,9 +800,6 @@ class SfMLearner(object):
                                         pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
                                         test_result_depth.append(np.squeeze(pred_depth2_np))
                                         pred_normal_np = np.squeeze(pred_normal_np)
-                                        # pred_normal_np[:,:,1] *= -1
-                                        # pred_normal_np[:,:,2] *= -1
-                                        # pred_normal_np = (pred_normal_np + 1.0) / 2.0
                                         test_result_normal.append(pred_normal_np)
 
                                 ## depth evaluation

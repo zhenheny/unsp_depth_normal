@@ -3,7 +3,6 @@ import tensorflow as tf
 import pprint
 import random
 import numpy as np
-from SfMLearner import SfMLearner as sfm_learner
 from SfMLearner_multi import SfMLearner as sfm_learner_multi
 
 import os
@@ -30,12 +29,13 @@ flags.DEFINE_integer("img_width", 416, "Image width")
 flags.DEFINE_integer("seq_length", 3, "Sequence length for each example")
 flags.DEFINE_integer("max_steps", 200000, "Maximum number of training iterations")
 flags.DEFINE_integer("summary_freq", 100, "Logging every log_freq iterations")
-flags.DEFINE_integer("eval_freq", 5000000, "Evaluation every eval_freq iterations")
+flags.DEFINE_integer("eval_freq", 500, "Evaluation every eval_freq iterations")
 flags.DEFINE_integer("save_latest_freq", 5000, \
     "Save the latest model every save_latest_freq iterations (overwrites the previous latest model)")
 flags.DEFINE_boolean("continue_train", False, "Continue training from previous checkpoint")
 flags.DEFINE_boolean("depth4pose", False, "Continue training from previous checkpoint")
 flags.DEFINE_string("rm_var_scope", "None", "the variable scope that remove from continue training")
+flags.DEFINE_string("trainable_var_scope", "None", "the variable scope that remove from continue training")
 flags.DEFINE_string("checkpoint_continue", "", "From which model it continues training")
 flags.DEFINE_string("gpu_id", "0", "GPU id used in training")
 flags.DEFINE_float("gpu_fraction", 0.4, "GPU memoery fraction required")
@@ -57,12 +57,10 @@ def main(_):
         os.makedirs(FLAGS.checkpoint_dir)
 
     FLAGS.gpu_id = [int(i) for i in FLAGS.gpu_id.split(',')]
+    FLAGS.trainable_var_scope = FLAGS.trainable_var_scope.split(',')
+    FLAGS.rm_var_scope = FLAGS.rm_var_scope.split(',')
 
-    if len(FLAGS.gpu_id) == 1:
-        sfm = sfm_learner()
-    else:
-        sfm = sfm_learner_multi()
-
+    sfm = sfm_learner_multi()
     sfm.train(FLAGS)
 
 if __name__ == '__main__':
