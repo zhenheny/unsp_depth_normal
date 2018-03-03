@@ -144,12 +144,13 @@ class SfMLearner(object):
                         tf.expand_dims(intrinsic_mtx[:,1,1],1),
                         tf.expand_dims(intrinsic_mtx[:,0,2],1),
                         tf.expand_dims(intrinsic_mtx[:,1,2],1)], 1)
+
         # pdb.set_trace()
-        pred_depth_tensor = tf.squeeze(pred_depth_tgt)
+        pred_depth_tensor = tf.squeeze(pred_depth_tgt, axis=3)
         pred_normal = d2n.depth2normal_layer_batch(
                            pred_depth_tensor, intrinsics, depth_inverse)
         pred_depth2 = n2d.normal2depth_layer_batch(
-                           pred_depth_tensor, tf.squeeze(pred_normal),
+                           pred_depth_tensor, pred_normal,
                            intrinsics, curr_tgt_image)
         pred_depth2 = tf.expand_dims(pred_depth2, -1)
 
@@ -168,7 +169,7 @@ class SfMLearner(object):
              ## 1. L2 loss
              ref_edge_mask = self.get_reference_explain_mask(s)[:,:,:,0]
              edge_loss += opt.edge_mask_weight/(2**s) *\
-                    tf.reduce_mean(tf.square(tf.squeeze(pred_edges)-ref_edge_mask))
+                    tf.reduce_mean(tf.square(tf.squeeze(pred_edges, axis=3)-ref_edge_mask))
 
          ## compute smoothness loss for depth considering the predicted edges
         if opt.smooth_weight > 0:
@@ -256,8 +257,9 @@ class SfMLearner(object):
                                 dense_motion_maps[:,:,:,3*i:3*(i+1)],
                                 pred_edges, mode='l2', alpha=1)
 
-                dm_loss += opt.dense_motion_weight * 0.3 /(2**s) *\
-                                tf.reduce_mean(tf.abs(tf.squeeze(dense_motion_maps[:,:,:,3*i:3*(i+1)])-ref_dm_map))
+                dm_loss += opt.dense_motion_weight * 0.3 /(2**s) * \
+                                tf.reduce_mean(tf.abs(dense_motion_maps[:,:,:,3*i:3*(i+1)] \
+                                -ref_dm_map))
 
             # Prepare images for tensorboard summaries
             if i == 0:
@@ -949,10 +951,12 @@ class SfMLearner(object):
                                             input_intrinsic = [[opt.img_width, opt.img_height, 0.5*opt.img_width, 0.5*opt.img_height]]
                                         img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (opt.img_height, opt.img_width))
                                         img = np.expand_dims(img, axis=0)
-                                        # test_result.append(np.squeeze(sess.run(self.pred_depth_test, feed_dict = {self.inputs: img, self.input_intrinsics: intrinsic})))
-                                        pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+                                        pred_depth2_np, pred_normal_np = sess.run(
+                                                [self.pred_depth_test, self.pred_normal_test],
+                                                feed_dict = {self.inputs: img,
+                                                    self.input_intrinsics: input_intrinsic})
                                         test_result_depth.append(np.squeeze(pred_depth2_np))
-                                        pred_normal_np = np.squeeze(pred_normal_np)
+                                        # pred_normal_np = np.squeeze(pred_normal_np)
                                         # pred_normal_np[:,:,1] *= -1
                                         # pred_normal_np[:,:,2] *= -1
                                         # pred_normal_np = (pred_normal_np + 1.0) / 2.0
@@ -1000,9 +1004,11 @@ class SfMLearner(object):
             for file in f:
                 img = sm.imresize(sm.imread(root_img_path+file.rstrip()), (self.opt.img_height, self.opt.img_width))
                 img = np.expand_dims(img, axis=0)
-                pred_depth2_np, pred_normal_np = sess.run([self.pred_depth_test, self.pred_normal_test], feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+                pred_depth2_np, pred_normal_np = sess.run(
+                    [self.pred_depth_test, self.pred_normal_test],
+                    feed_dict = {self.inputs: img, self.input_intrinsics: input_intrinsic})
+
                 test_result_depth.append(np.squeeze(pred_depth2_np))
-                pred_normal_np = np.squeeze(pred_normal_np)
                 pred_normal_np[:,:,1] *= -1
                 pred_normal_np[:,:,2] *= -1
                 pred_normal_np = (pred_normal_np + 1.0) / 2.0
@@ -1024,11 +1030,11 @@ class SfMLearner(object):
                             tf.expand_dims(intrinsic_mtx[:,1,1],1),
                             tf.expand_dims(intrinsic_mtx[:,0,2],1),
                             tf.expand_dims(intrinsic_mtx[:,1,2],1)], 1)
-            pred_depth_tensor = tf.squeeze(depth)
+            pred_depth_tensor = tf.squeeze(depth, axis=3)
             pred_normal = d2n.depth2normal_layer_batch(
                                pred_depth_tensor, intrinsics, depth_inverse)
             pred_depth2 = n2d.normal2depth_layer_batch(
-                               pred_depth_tensor, tf.squeeze(pred_normal),
+                               pred_depth_tensor, pred_normal,
                                intrinsics, tgt_image)
             pred_depth2 = tf.expand_dims(pred_depth2, -1)
 
@@ -1046,8 +1052,10 @@ class SfMLearner(object):
         with tf.name_scope("depth_prediction"):
             pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(input_mc, do_edge=True)
             pred_depth = [1. / disp for disp in pred_disp]
-            pred_normal = d2n.depth2normal_layer_batch(tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
-            pred_depths2 = n2d.normal2depth_layer_batch(tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
+            pred_normal = d2n.depth2normal_layer_batch(
+                    tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
+            pred_depths2 = n2d.normal2depth_layer_batch(
+                tf.squeeze(pred_depth[0], axis=3), pred_normal, intrinsics, input_mc, nei=1)
             pred_depths2_avg = pred_depths2
             # pred_depths2_avg = tf.reduce_mean([pred_depths2[i] for i in range(len(pred_depths2))], axis=0)
             print("shape of pred_depths2_avg")
