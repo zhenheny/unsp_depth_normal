@@ -233,7 +233,7 @@ class SfMLearner(object):
                 pixel_loss += opt.ssim_weight * tf.reduce_mean(
                                 self.SSIM(curr_proj_image, curr_tgt_image))
                 pixel_loss += opt.ssim_weight * tf.reduce_mean(
-                                self.SSIM(curr_proj_image, curr_tgt_image))
+                                self.SSIM(shifted_curr_proj_image, curr_tgt_image))
 
             if opt.img_grad_weight > 0:
                 img_grad_loss += self.gradient_loss(curr_proj_image, curr_tgt_image_grad)
@@ -257,9 +257,10 @@ class SfMLearner(object):
                                 dense_motion_maps[:,:,:,3*i:3*(i+1)],
                                 pred_edges, mode='l2', alpha=1)
 
-                dm_loss += opt.dense_motion_weight * 0.3 /(2**s) * \
-                                tf.reduce_mean(tf.abs(dense_motion_maps[:,:,:,3*i:3*(i+1)] \
-                                -ref_dm_map))
+                dm_loss += opt.dense_motion_weight * 0.01 /(2**s) * \
+                                tf.reduce_mean(tf.abs(
+                                    dense_motion_maps[:,:,:,3*i:3*(i+1)] \
+                                    - ref_dm_map))
 
             # Prepare images for tensorboard summaries
             if i == 0:
@@ -868,7 +869,8 @@ class SfMLearner(object):
 
             print('Trainable variables: ')
             for var in tf.trainable_variables():
-                print(var.name)
+                if is_exists(opt.trainable_var_scope, var.name):
+                    print(var.name)
 
             print("parameter_count =", sess.run(parameter_count))
 
