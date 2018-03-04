@@ -34,6 +34,7 @@ flags.DEFINE_string("checkpoint_continue", "", "From which model it continues tr
 flags.DEFINE_string("gpu_id", "0", "GPU id used in training")
 flags.DEFINE_float("gpu_fraction", 0.4, "GPU memoery fraction required")
 flags.DEFINE_string("eval_txt", "evaluation_kitti.txt", "name of txt files to store the evaluation results")
+flags.DEFINE_string("rm_var_scope", "None", "the variable scope that remove from continue training")
 FLAGS = flags.FLAGS
 
 os.environ["CUDA_VISIBLE_DEVICES"]=FLAGS.gpu_id

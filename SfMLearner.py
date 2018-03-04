@@ -17,6 +17,12 @@ from evaluate_kitti import *
 from evaluate_normal import *
 from bilinear_sampler import bilinear_sampler_1d_h
 
+def is_exists(fields, name):
+    for field in fields:
+        if field in name:
+            return True
+
+    return False
 
 class SfMLearner(object):
     def __init__(self):
@@ -77,7 +83,7 @@ class SfMLearner(object):
             image_seq = tf.image.decode_jpeg(image_contents)
             image_seq = self.preprocess_image(image_seq)
             tgt_image, src_image_stack = \
-                self.unpack_image_sequence(image_seq)
+                self.unpack_image_sequence_list(image_seq) # here the src_image_stack is a list, each element is B,H,W,3
 
             # Load left-right images
             _, r_image_contents = img_reader.read(right_image_paths_queue)
@@ -100,13 +106,18 @@ class SfMLearner(object):
                 raw_cam_mat, opt.num_scales)
 
             # Form training batches
-            src_image_stack, tgt_image, r_image, proj_cam2pix, proj_pix2cam = \
-                    tf.train.batch([src_image_stack, tgt_image, r_image_seq, proj_cam2pix, 
-                                    proj_pix2cam], batch_size=opt.batch_size)
+            input_batch = tf.train.batch(src_image_stack + \
+                            [tgt_image, r_image_seq, proj_cam2pix, proj_pix2cam],
+                             batch_size=opt.batch_size,
+                             num_threads=4,
+                             capacity=64)
+            src_image_stack = input_batch[:opt.num_source]
+            tgt_image, r_image, proj_cam2pix, proj_pix2cam = input_batch[opt.num_source:]
+
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
-            print ("src_image_stack shape:")
-            print (src_image_stack.get_shape().as_list())
+            print ("src_image_stack[0] shape:")
+            print (src_image_stack[0].get_shape().as_list())
             print ("right_images shape:")
             print (r_image.get_shape().as_list())
 
@@ -139,6 +150,8 @@ class SfMLearner(object):
             flyout_map_all = []
             edge_mask_all = []
             depth_inverse = False
+
+            src_image_stack = tf.concat(src_image_stack, axis=3)
             for s in range(opt.num_scales):
                 # Construct a reference explainability mask (i.e. all 
                 # pixels are explainable)
@@ -639,7 +652,14 @@ class SfMLearner(object):
         with tf.name_scope("parameter_count"):
             parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) \
                                             for v in tf.trainable_variables()])
-        load_saver_vars = [var for var in tf.model_variables() if "/edge/" not in var.name]
+        load_saver_vars = [var for var in tf.model_variables() \
+                        if not is_exists(opt.rm_var_scope, var.name)]
+                        
+        print("Vars to load from the pretrained model:")
+        for var in load_saver_vars:
+            print(var.name)
+            print(opt.rm_var_scope not in var.name)
+
         self.load_saver = tf.train.Saver(load_saver_vars + [self.global_step], max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
@@ -905,6 +925,32 @@ class SfMLearner(object):
                                    opt.num_source * 3])
         tgt_image.set_shape([opt.img_height, opt.img_width, 3])
         return tgt_image, src_image_stack
+
+    def unpack_image_sequence_list(self, image_seq):
+        opt = self.opt
+        # Assuming the center image is the target frame
+        tgt_start_idx = int(opt.img_width * (opt.num_source//2))
+        tgt_image = tf.slice(image_seq,
+                             [0, tgt_start_idx, 0],
+                             [-1, opt.img_width, -1])
+
+        # Source fames before the target frame
+        src_image_1 = tf.slice(image_seq,
+                               [0, 0, 0],
+                               [-1, int(opt.img_width * (opt.num_source//2)), -1])
+
+        # Source frames after the target frame
+        src_image_2 = tf.slice(image_seq,
+                               [0, int(tgt_start_idx + opt.img_width), 0],
+                               [-1, int(opt.img_width * (opt.num_source//2)), -1])
+        src_image_seq = [src_image_1, src_image_2]
+
+        for src_image in src_image_seq:
+            src_image.set_shape([opt.img_height, opt.img_width, 3])
+
+        tgt_image.set_shape([opt.img_height, opt.img_width, 3])
+
+        return tgt_image, src_image_seq
 
     def get_multi_scale_intrinsics(self, raw_cam_mat, num_scales):
         proj_cam2pix = []
