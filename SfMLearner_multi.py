@@ -154,10 +154,10 @@ class SfMLearner(object):
                            intrinsics, curr_tgt_image)
         pred_depth2 = tf.expand_dims(pred_depth2, -1)
 
-         # normalize the depth with mean depth
+        # normalize the depth with mean depth
         pred_depth2 = pred_depth2 /tf.reduce_mean(pred_depth2)
 
-         # normal depth2 to avoid corner case of preddepth2=0
+        # normal depth2 to avoid corner case of preddepth2=0
         pred_disp2 = 1.0 / pred_depth2
 
         pred_normals.append(pred_normal)
@@ -460,12 +460,23 @@ class SfMLearner(object):
 
                 # using dense motion network for dense motion
                 with tf.name_scope("dense_motion"):
-                    dense_motion_maps, pose_exp_net_endpoints = \
-                        nets.dense_motion_u_net(tgt_image[gpu_id],
-                                                proj_image_seq,
-                                                pred_depth2,
-                                                proj_depth_seq,
-                                          reuse=False if gpu_id == 0 else True)
+                    if opt.motion_net == 'unet':
+                        dense_motion_maps, _ = \
+                            nets.dense_motion_u_net(tgt_image[gpu_id],
+                                                    proj_image_seq,
+                                                    pred_depth2,
+                                                    proj_depth_seq,
+                                              reuse=False if gpu_id == 0 else True)
+                    elif opt.motion_net == 'pwc':
+                        dense_motion_maps = \
+                            nets.dense_motion_pwc_net(tgt_image[gpu_id],
+                                                    proj_image_seq,
+                                                    pred_depth2,
+                                                    proj_depth_seq,
+                                              reuse=False if gpu_id == 0 else True)
+                    else:
+                        raise ValueError('No such network {}'.format(opt.motion_net))
+
 
                 with tf.name_scope("compute_loss"):
                     pixel_loss = 0
@@ -1023,6 +1034,7 @@ class SfMLearner(object):
         dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = normal_eval.eval_normal(pred_normals, gt_normals)
 
         return abs_rel, sq_rel, rms, log_rms, a1, a2, a3, dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30
+
 
     def depth_with_normal(self, depth, intrinsic_mtx, tgt_image,
                           depth_inverse=False):
