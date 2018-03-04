@@ -178,8 +178,8 @@ class SfMLearner(object):
                 if opt.smooth_weight > 0:
                     if opt.edge_mask_weight > 0:
                         smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
-                            # self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
-                            self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
+                            self.compute_smooth_loss_wedge(pred_disp2, pred_edges[s], mode='l2'))
+                            # self.compute_smooth_loss_wedge_3d(pred_disp2, pred_edges[s], intrinsics))
                         # smooth_loss += tf.multiply(opt.smooth_weight/(2**s), \
                         #     self.compute_smooth_loss_wedge(pred_disp[s], pred_edges[s], mode='l2'))
                     else:
@@ -288,7 +288,7 @@ class SfMLearner(object):
                         pixel_loss += tf.reduce_mean(curr_proj_error) 
 
                     if opt.ssim_weight > 0:
-                        pixel_loss += tf.reduce_mean(self.SSIM(curr_proj_image, curr_tgt_image))
+                        pixel_loss += opt.ssim_weight * tf.reduce_mean(self.SSIM(curr_proj_image, curr_tgt_image))
 
                     if opt.img_grad_weight > 0:
                         curr_proj_image_grad_x, curr_proj_image_grad_y = self.gradient(curr_proj_image[:, :-2, 1:-1, :])

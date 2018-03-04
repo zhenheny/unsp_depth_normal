@@ -178,7 +178,7 @@ def disp_net(tgt_image, is_training=True, do_edge=False):
 
                     upcnv4_e = slim.conv2d_transpose(icnv5_e, 128, [4, 4], stride=2, scope='upcnv4')
                     i4_in_e  = tf.concat([upcnv4_e, cnv3b], axis=3)
-                    icnv4_e  = slim.conv2d(i4_in, 128, [3, 3], stride=1, scope='icnv4')
+                    icnv4_e  = slim.conv2d(i4_in_e, 128, [3, 3], stride=1, scope='icnv4')
                     edge4  = slim.conv2d(icnv4_e, 1,   [3, 3], stride=1, 
                         activation_fn=tf.sigmoid, normalizer_fn=None, scope='edge4') + MIN_EDGE
                     edge4 = tf.image.resize_nearest_neighbor(edge4, [H//8,W//8])
