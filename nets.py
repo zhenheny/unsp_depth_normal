@@ -87,7 +87,7 @@ def motion_decoder_dc(inputs, level, out_channel=2):
       return flow, cnv5
 
 
-def context_net(inputs):
+def context_net(inputs, out_channel=2):
     with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
                       #normalizer_fn=slim.batch_norm,
                       #normalizer_params=batch_norm_params,
@@ -101,7 +101,7 @@ def context_net(inputs):
       cnv5 = slim.conv2d(cnv4, 64, [3, 3], rate=16, scope="cnv5_cn")
       cnv6 = slim.conv2d(cnv5, 32, [3, 3], rate=1, scope="cnv6_cn")
 
-      flow = slim.conv2d(cnv6, 2, [3, 3], rate=1, scope="cnv7_cn", activation_fn=None)
+      flow = slim.conv2d(cnv6, out_channel, [3, 3], rate=1, scope="cnv7_cn", activation_fn=None)
       return flow
 
 def pose_exp_net(tgt_image,
@@ -340,13 +340,13 @@ def dense_motion_u_net(tgt_image,
 
 
 def dense_motion_pwc_net(tgt_image,
-                     src_image_seq,
-                     tgt_depth,
-                     src_depth_seq,
-                     with_depth=True,
-                     is_training=True,
-                     in_size=[128, 416],
-                     reuse=False):
+                         src_image_seq,
+                         tgt_depth,
+                         src_depth_seq,
+                         with_depth=True,
+                         is_training=True,
+                         in_size=[128, 416],
+                         reuse=False):
 
     H, W = map(int, tgt_image.get_shape()[1:3])
 
@@ -363,6 +363,7 @@ def dense_motion_pwc_net(tgt_image,
 
     inputs = tf.concat(input_image_pairs, axis=0)
     num_source = len(src_image_seq)
+    channel = 3
 
     with tf.variable_scope('dense_motion_pwc_net', reuse=reuse):
         inputs1, inputs2 = tf.split(inputs, 2, axis=3)
@@ -379,21 +380,22 @@ def dense_motion_pwc_net(tgt_image,
             if i < pyramid_num - 1:
                 cv = tf.concat([cv, pyramid1[i], flow2next], axis=3)
 
-            flow, feat = motion_decoder_dc(cv, level=i+1, out_channel=3)
+            flow, feat = motion_decoder_dc(cv, level=i+1,
+                    out_channel=channel)
 
             # flow = flow + flow2next if flow2next is not None else flow
             if i == 1:
-                flow = context_net(tf.concat([flow, feat], axis=3)) + flow
+                flow = context_net(tf.concat([flow, feat], axis=3), channel) + flow
                 flows.append(flow)
                 break
 
             flows.append(flow)
             # resize for next level
-            flow2next = tf.image.resize_bilinear(flow,
-                    [H/(2**(i-1)), (W/(2**(i-1)))]) * 2.0
+            curr_image_sz = [int(H/(2**i)), int((W/(2**i)))]
+            flow2next = tf.image.resize_bilinear(flow, curr_image_sz) * 2.0
             # pyramid2_warp = trans.transformer(pyramid2[i-1], flow2next, [H/(2**i), W/(2**i)])
 
-        dms = flow[::-1]
+        dms = flows[::-1]
         # reorgnize back to original
         # dms = []
         # depth_tgt = tf.slice(inputs1, [0, 0, 0, ], [-1, -1, -1, -1])
@@ -411,7 +413,7 @@ def dense_motion_pwc_net(tgt_image,
             src_dms = tf.split(dm, num_source, axis=0)
             dms[i] = tf.concat(src_dms, axis=3)
             h, w = map(int, dms[i].get_shape()[1:3])
-            dms[i] = tf.resize_bilinear(dms[i], [4 * h, 4 * w])
+            dms[i] = tf.image.resize_bilinear(dms[i], [4 * h, 4 * w])
 
         return dms[:4]
 

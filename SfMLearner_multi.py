@@ -460,8 +460,8 @@ class SfMLearner(object):
 
                 # using dense motion network for dense motion
                 with tf.name_scope("dense_motion"):
-                    dense_motion_maps, pose_exp_net_endpoints = \
-                        nets.dense_motion_u_net(tgt_image[gpu_id],
+                    dense_motion_maps = \
+                        nets.dense_motion_pwc_net(tgt_image[gpu_id],
                                                 proj_image_seq,
                                                 pred_depth2,
                                                 proj_depth_seq,
@@ -1023,6 +1023,7 @@ class SfMLearner(object):
         dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = normal_eval.eval_normal(pred_normals, gt_normals)
 
         return abs_rel, sq_rel, rms, log_rms, a1, a2, a3, dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30
+
 
     def depth_with_normal(self, depth, intrinsic_mtx, tgt_image,
                           depth_inverse=False):
