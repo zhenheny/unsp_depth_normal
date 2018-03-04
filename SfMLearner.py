@@ -12,7 +12,7 @@ import scipy.misc as sm
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import nets
-import utils as uts
+import utils_bk as uts
 from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
@@ -686,7 +686,7 @@ class SfMLearner(object):
         self.opt = opt
 
         if not ((opt.continue_train==True) and (opt.checkpoint_continue=="")):
-            with open("./log/"+opt.eval_txt, "w") as f:
+            with open("./eval/"+opt.eval_txt, "w") as f:
                 f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format(
                     'abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
 

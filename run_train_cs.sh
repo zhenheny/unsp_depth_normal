@@ -1,7 +1,7 @@
 python3 train.py \
-    --dataset_dir=/home/peng/Data/cityscapes/frame_seq_832_342/ \
-    --eval_data_path=/home/peng/Data/kitti/ \
-	--checkpoint_dir=./output/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs \
+    --dataset_dir=/home/zhenheng/datasets/cityscapes/frame_seq_832_342/ \
+    --eval_data_path=/home/zhenheng/datasets/kitti/ \
+	--checkpoint_dir=/home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs \
 	--eval_txt=ektc_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs.txt \
 	--img_width=832 \
     --img_height=256 \
@@ -15,9 +15,9 @@ python3 train.py \
     --occ_mask=0.0 \
     --depth_consistency=0.0 \
 	--dense_motion_weight=0.03 \
-	--gpu_id=1 \
-    --gpu_fraction=0.8 \
+	--gpu_id=0 \
+    --gpu_fraction=0.4 \
     --depth4pose=True \
 	--continue_train=True \
-    --rm_var_scope=/None/ \
-	--checkpoint_continue=./output/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt2_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.0_dm_xz_2loss_l1wt0.01_depth4pose_depth1normal_eval_edgepretrained_cs/model.latest
+    --rm_var_scope=/motion_net/ \
+	--checkpoint_continue=/home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-100002
