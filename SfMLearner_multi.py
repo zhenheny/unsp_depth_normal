@@ -460,12 +460,23 @@ class SfMLearner(object):
 
                 # using dense motion network for dense motion
                 with tf.name_scope("dense_motion"):
-                    dense_motion_maps = \
-                        nets.dense_motion_pwc_net(tgt_image[gpu_id],
-                                                proj_image_seq,
-                                                pred_depth2,
-                                                proj_depth_seq,
-                                          reuse=False if gpu_id == 0 else True)
+                    if opt.motion_net == 'unet':
+                        dense_motion_maps, _ = \
+                            nets.dense_motion_u_net(tgt_image[gpu_id],
+                                                    proj_image_seq,
+                                                    pred_depth2,
+                                                    proj_depth_seq,
+                                              reuse=False if gpu_id == 0 else True)
+                    elif opt.motion_net == 'pwc':
+                        dense_motion_maps = \
+                            nets.dense_motion_pwc_net(tgt_image[gpu_id],
+                                                    proj_image_seq,
+                                                    pred_depth2,
+                                                    proj_depth_seq,
+                                              reuse=False if gpu_id == 0 else True)
+                    else:
+                        raise ValueError('No such network {}'.format(opt.motion_net))
+
 
                 with tf.name_scope("compute_loss"):
                     pixel_loss = 0

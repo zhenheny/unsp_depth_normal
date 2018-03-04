@@ -36,6 +36,7 @@ flags.DEFINE_boolean("continue_train", False, "Continue training from previous c
 flags.DEFINE_boolean("depth4pose", False, "Continue training from previous checkpoint")
 flags.DEFINE_string("rm_var_scope", "None", "the variable scope that remove from continue training")
 flags.DEFINE_string("trainable_var_scope", "None", "the variable scope that remove from continue training")
+flags.DEFINE_string("motion_net", "unet", "the variable scope that remove from continue training")
 flags.DEFINE_string("checkpoint_continue", "", "From which model it continues training")
 flags.DEFINE_string("gpu_id", "0", "GPU id used in training")
 flags.DEFINE_float("gpu_fraction", 0.4, "GPU memoery fraction required")

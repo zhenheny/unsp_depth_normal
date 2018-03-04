@@ -19,6 +19,7 @@
 	--gpu_id=2 \
     --gpu_fraction=0.8 \
     --depth4pose=True \
+    --motion_net=unet \
 	--continue_train=True \
     --trainable_var_scope=/edge/,/motion_net/,/dense_motion_pwc_net/ \
     --rm_var_scope=/dense_motion_pwc_net/,/motion_net/ \
