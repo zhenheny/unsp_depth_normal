@@ -154,10 +154,10 @@ class SfMLearner(object):
                            intrinsics, curr_tgt_image)
         pred_depth2 = tf.expand_dims(pred_depth2, -1)
 
-         # normalize the depth with mean depth
+        # normalize the depth with mean depth
         pred_depth2 = pred_depth2 /tf.reduce_mean(pred_depth2)
 
-         # normal depth2 to avoid corner case of preddepth2=0
+        # normal depth2 to avoid corner case of preddepth2=0
         pred_disp2 = 1.0 / pred_depth2
 
         pred_normals.append(pred_normal)

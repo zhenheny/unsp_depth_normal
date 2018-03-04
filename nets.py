@@ -364,7 +364,7 @@ def dense_motion_pwc_net(tgt_image,
     inputs = tf.concat(input_image_pairs, axis=0)
     num_source = len(src_image_seq)
 
-    with tf.variable_scope('dense_motion_net', reuse=reuse):
+    with tf.variable_scope('dense_motion_pwc_net', reuse=reuse):
         inputs1, inputs2 = tf.split(inputs, 2, axis=3)
         pyramid1 = feature_pyramid(inputs1, reuse=reuse)
         pyramid2 = feature_pyramid(inputs2, reuse=True)
