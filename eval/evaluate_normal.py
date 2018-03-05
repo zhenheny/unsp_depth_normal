@@ -16,7 +16,7 @@ def load_normals(pred_normals, split, gt_path, test_fn):
 	## or it can be a path containing normal images
 
 	## load pred_normals
-	
+
 
 	## load gt_normals
 	if split in ["kitti", "eigen"]:
@@ -24,7 +24,7 @@ def load_normals(pred_normals, split, gt_path, test_fn):
 		gt_files = os.listdir(gt_path)
 		gt_files.sort()
 		for file in gt_files:
-			if file[0] == ".": continue 
+			if file[0] == ".": continue
 			gt_normals.append(transform(sm.imread(gt_path + file)))
 
 		# pred_normals, gt_normals = np.array(pred_normals, dtype=np.float32), np.array(gt_normals, dtype=np.float32)
@@ -32,7 +32,7 @@ def load_normals(pred_normals, split, gt_path, test_fn):
 	if split == "cs":
 		num_samples = 500
 		gt_normals = [[] for i in range(num_samples)]
-	
+
 	if split == "nyuv2":
 		gt_normals = []
 		with open(test_fn) as f:
@@ -58,7 +58,9 @@ def normalize_norm(normal_maps, axis):
 
 	return normal_maps
 
-def eval_normal(pred_normals, gt_normals, split, vis=False, vis_path='/home/zhenheng/works/unsp_depth_normal/eval/normal_kitti/'):
+def eval_normal(pred_normals, gt_normals, split, vis=False,
+        vis_path='/home/zhenheng/works/unsp_depth_normal/eval/normal_kitti/'):
+
 	## normal evaluation core function
 	## input are two numpy arrays with same shape [batch, width, height, 3]
 	vis_path = "/home/zhenheng/datasets/cityscapes/sequences_vis/sequence10/normal/"
@@ -76,7 +78,7 @@ def eval_normal(pred_normals, gt_normals, split, vis=False, vis_path='/home/zhen
 			pred_normal = np.clip(pred_normal, -1.0, 1.0)
 			pred_normal = st.resize(pred_normal, gt_normal.shape)
 			pred_normal_normed = pred_normal
-			
+
 			masks = (gt_normal > -0.95)
 			mask = masks[:,:,0] | masks[:,:,1] | masks[:,:,2]
 			pred_normal_norm, gt_normal_norm = nla.norm(pred_normal, axis=2), nla.norm(gt_normal, axis=2)
@@ -84,14 +86,14 @@ def eval_normal(pred_normals, gt_normals, split, vis=False, vis_path='/home/zhen
 			for j in range(pred_normal.shape[-1]):
 				pred_normal_normed[:,:,j] /= (pred_normal_norm + 1e-6)
 				gt_normal_normed[:,:,j] /= (gt_normal_norm + 1e-6)
-			
+
 			in_prod = np.sum(pred_normal_normed * gt_normal_normed, axis=-1)
 			degree_map = np.arccos(in_prod) / math.pi
 			if vis:
 				# first_row = np.hstack(((gt_normal + 1.0)/2.0, ((pred_normal+1.0) / 2.0) * np.tile(mask[:,:,None], [1,1,3])))
 				# first_row = np.hstack(((gt_normal + 1.0)/2.0, ((pred_normal+1.0) / 2.0) ))
 				# second_row = np.hstack((np.tile((degree_map * mask)[:,:,None], [1,1,3]),
-				# second_row = np.hstack((np.abs((gt_normal - pred_normal) * masks)/np.amax(np.abs((gt_normal - pred_normal) * masks)), 
+				# second_row = np.hstack((np.abs((gt_normal - pred_normal) * masks)/np.amax(np.abs((gt_normal - pred_normal) * masks)),
 				# np.tile(mask[:,:,None], [1,1,3])))
 				# np.tile((np.arccos(in_prod)/math.pi)[:,:,None], [1,1,3])))
 				# np.tile(np.expand_dims(in_prod/np.amax(in_prod), -1), (1,1,3))))
@@ -108,7 +110,7 @@ def eval_normal(pred_normals, gt_normals, split, vis=False, vis_path='/home/zhen
 		# print (mask.shape)
 		# print ((np.abs((gt_normal - pred_normal) * masks)/np.amax(np.abs((gt_normal - pred_normal) * masks))).shape)
 		# print ((np.tile(in_prod * mask/np.amax(in_prod * mask), (1,1,3))).shape)
-		
+
 		# print(in_prod.shape)
 		# print ("%d, %d" % (np.amax(in_prod[mask]), np.amin(in_prod[mask])))
 		degree = np.arccos(in_prod[mask])*180.0/math.pi
