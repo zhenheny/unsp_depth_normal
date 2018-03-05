@@ -398,6 +398,7 @@ class SfMLearner(object):
                         pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(
                                 image_stack, do_edge=(opt.edge_mask_weight > 0),
                                 reuse=False if gpu_id == 0 else True)
+                        pred_disp = [d[:,:,:,:1] for d in pred_disp]
                         pred_depth = [1./d for d in pred_disp]
 
                     pred_depth_src = None
@@ -846,7 +847,7 @@ class SfMLearner(object):
         self.opt = opt
 
         if not ((opt.continue_train==True) and (opt.checkpoint_continue=="")):
-            with open("./log/"+opt.eval_txt, "w") as f:
+            with open("./eval/"+opt.eval_txt, "w") as f:
                 f.write("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}\n".format(
                     'abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3'))
 
@@ -1065,6 +1066,7 @@ class SfMLearner(object):
 
         with tf.name_scope("depth_prediction"):
             pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(input_mc, do_edge=True)
+            pred_disp = [d[:,:,:,:1] for d in pred_disp]
             pred_depth = [1. / disp for disp in pred_disp]
             pred_normal = d2n.depth2normal_layer_batch(
                     tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
