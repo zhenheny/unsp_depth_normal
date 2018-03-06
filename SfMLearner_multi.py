@@ -129,6 +129,7 @@ class SfMLearner(object):
         proj_error_stack_all = []
         shifted_proj_image_stack_all = []
         shifted_proj_error_stack_all = []
+        tgt_image_grad_weight_all = []
         exp_mask_stack_all = []
         pred_normals = []
         pred_disps2 = []
@@ -280,6 +281,7 @@ class SfMLearner(object):
             if i == 0:
                 proj_image_stack = curr_proj_image
                 proj_error_stack = curr_proj_error
+                tgt_image_grad_weight = curr_tgt_image_grad_weight
                 shifted_proj_image_stack = shifted_curr_proj_image
                 shifted_proj_error_stack = shifted_curr_proj_error
                 flyout_map = curr_flyout_map
@@ -294,6 +296,8 @@ class SfMLearner(object):
                         curr_proj_image], axis=3)
                 proj_error_stack = tf.concat([proj_error_stack,
                                               curr_proj_error], axis=3)
+                tgt_image_grad_weight = tf.concat([tgt_image_grad_weight,
+                                            curr_tgt_image_grad_weight], axis=3)
                 shifted_proj_error_stack = tf.concat([shifted_proj_error_stack,
                         shifted_curr_proj_error], axis=3)
                 flyout_map = tf.concat([flyout_map, curr_flyout_map], axis=3)
@@ -308,6 +312,7 @@ class SfMLearner(object):
         proj_image_stack_all.append(proj_image_stack)
         shifted_proj_image_stack_all.append(shifted_proj_image_stack)
         proj_error_stack_all.append(proj_error_stack)
+        tgt_image_grad_weight_all.append(tgt_image_grad_weight)
         shifted_proj_error_stack_all.append(shifted_proj_error_stack)
         flyout_map_all.append(flyout_map)
         if opt.explain_reg_weight > 0:
@@ -321,6 +326,7 @@ class SfMLearner(object):
                 edge_loss, dm_loss], \
                [tgt_image_all, \
                 src_image_all, \
+                tgt_image_grad_weight_all, \
                 proj_image_stack_all, \
                 proj_error_stack_all, \
                 shifted_proj_image_stack_all, \
@@ -508,6 +514,7 @@ class SfMLearner(object):
                     proj_error_stack_all = []
                     shifted_proj_image_stack_all = []
                     shifted_proj_error_stack_all = []
+                    tgt_image_grad_weight_all = []
                     exp_mask_stack_all = []
                     pred_normals = []
                     pred_disps2 = []
@@ -538,14 +545,15 @@ class SfMLearner(object):
 
                         tgt_image_all += outputs[0]
                         src_image_all += outputs[1]
-                        proj_image_stack_all += outputs[2]
-                        proj_error_stack_all += outputs[3]
-                        shifted_proj_image_stack_all += outputs[4]
-                        shifted_proj_error_stack_all += outputs[5]
-                        exp_mask_stack_all += outputs[6]
-                        pred_normals += outputs[7]
-                        pred_disps2 += outputs[8]
-                        flyout_map_all += outputs[9]
+                        tgt_image_grad_weight_all += outputs[2]
+                        proj_image_stack_all += outputs[3]
+                        proj_error_stack_all += outputs[4]
+                        shifted_proj_image_stack_all += outputs[5]
+                        shifted_proj_error_stack_all += outputs[6]
+                        exp_mask_stack_all += outputs[7]
+                        pred_normals += outputs[8]
+                        pred_disps2 += outputs[9]
+                        flyout_map_all += outputs[10]
 
                     total_loss = pixel_loss + \
                                  smooth_loss + \
@@ -595,6 +603,7 @@ class SfMLearner(object):
         self.tgt_image_all = tgt_image_all
         self.src_image_all = src_image_all
         self.proj_image_stack_all = proj_image_stack_all
+        self.tgt_image_grad_weight_all = tgt_image_grad_weight_all
         self.shifted_proj_image_stack_all = shifted_proj_image_stack_all
         self.proj_error_stack_all = proj_error_stack_all
         self.shifted_proj_error_stack_all = shifted_proj_error_stack_all
@@ -831,6 +840,8 @@ class SfMLearner(object):
                 self.deprocess_image(self.proj_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
             tf.summary.image('scale%d_proj_error_%d' % (s, i),
                 tf.expand_dims(self.proj_error_stack_all[s][:,:,:,i], -1))
+            tf.summary.image('scale%d_tgt_image_grad_wt_%d' % (s, i),
+                tf.expand_dims(self.tgt_image_grad_weight_all[s][:,:,:,i], -1))
             tf.summary.image('scale%d_shifted_projected_image_%d' % (s, i),
                     self.deprocess_image(self.shifted_proj_image_stack_all[s][:, :, :, i*3:(i+1)*3]))
             tf.summary.image('scale%d_shifted_proj_error_%d' % (s, i),
