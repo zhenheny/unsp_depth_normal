@@ -39,7 +39,7 @@ class SfMLearner(object):
         D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
         return D_dx, D_dy
 
-    def gradient_weight(self, pred, alpha=0.2):
+    def gradient_weight(self, pred, alpha=0.5):
         gradx, grady = self.gradient(pred)
         grad = tf.sqrt(tf.square(gradx[:,1:,:,:])+tf.square(grady[:,:,1:,:]))
         grad = tf.reduce_mean(grad, axis=3, keep_dims=True)
