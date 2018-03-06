@@ -806,3 +806,25 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     projected_img = _spatial_transformer(img, src_pixel_coords)
     
     return projected_img
+
+def gen_3d_flow_c(camera_pose, depth1, intrinsics=None, inverse=False):
+    # camera_pose: [B,6]
+    # dense_motion: [B,H,W,3]
+    # depth1: [B,H,W]
+    # depth2: [B,H,W]
+
+    B, H, W = depth1.get_shape().as_list()[1:3]
+    if intrinsics == None:
+        intrinsics = tf.tile(tf.cast([[W, H, 0.5*W, 0.5*H]], tf.float32), [B,1])
+    pts_3d_1 = compute_3dpts_batch(depth1, intrinsics) # [B,H,W,3]
+    shifted_pts_3d_1 = pts_3d_1
+    ones = tf.ones([B,H,W,1])
+    pts_3d_1_hom = tf.concat([shifted_pts_3d_1, ones], axis=3) # [B,H,W,4]
+    pose_mat = pose_vec2mat(camera_pose) # [B,4,4]
+    if inverse:
+        pose_mat = tf.matrix_inverse(pose_mat)
+    pts_3d_2_hom = tf.reshape(tf.matmul(pose_mat, tf.reshape(pts_3d_1_hom, [B,H*W,4])), [B,H,W,4])
+    pts_3d_2 = pts_3d_2_hom[:,:,:,:3] / pts_3d_2_hom[:,:,:,3:]
+    flow_3d = pts_3d_2 - pts_3d_1
+
+    return flow_3d

@@ -67,7 +67,7 @@ class SfMLearner(object):
             image_seq = tf.image.decode_jpeg(image_contents)
             image_seq = self.preprocess_image(image_seq)
             tgt_image, src_image_stack = \
-                self.unpack_image_sequence(image_seq)
+                self.unpack_image_sequence_list(image_seq)
 
             # Load camera intrinsics
             cam_reader = tf.TextLineReader()
@@ -83,36 +83,53 @@ class SfMLearner(object):
                 raw_cam_mat, opt.num_scales)
 
             # Form training batches
-            src_image_stack, tgt_image, proj_cam2pix, proj_pix2cam = \
-                    tf.train.batch([src_image_stack, tgt_image, proj_cam2pix, 
-                                    proj_pix2cam], batch_size=opt.batch_size)
+            input_batch = tf.train.batch(src_image_stack + \
+                            [tgt_image, proj_cam2pix, proj_pix2cam],
+                             batch_size=opt.batch_size,
+                             num_threads=4,
+                             capacity=64)
+            src_image_stack = input_batch[:opt.num_source]
+            tgt_image, proj_cam2pix, proj_pix2cam = input_batch[opt.num_source:]
+
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
             print ("src_image_stack shape")
-            print (src_image_stack.get_shape().as_list())
+            print (src_image_stack[0].get_shape().as_list())
 
         ## flow prediction network
         with tf.name_scope("flow_prediction"):
-            flow2, _, _, _, _, _ = construct_model_pwc_full(tgt_image, image2)
-            flow1 = tf.image.resize_images(flow2*20.0, [opt.img_height, opt.img_width])
-            flow1r = tf.image.resize_images(flow2r*20.0, [opt.img_height, opt.img_width])
+            input1 = tf.concat([src_image_stack[0], tgt_image, tgt_image, src_image_stack[1]], axis=0)
+            input2 = tf.concat([tgt_image, src_image_stack[1], src_image_stack[0], tgt_image], axis=0)
+            flow_stack, _, _, _, _, _ = construct_model_pwc_full(input1, input2)
+            flow1, flow2, flow1r, flow2r = tf.split(flow_stack, 4, axis=0)
+            flow1 = tf.image.resize_images(flow1*20.0, [opt.img_height, opt.img_width])
+            flow1r = tf.image.resize_images(flow1r*20.0, [opt.img_height, opt.img_width])
+            flow2 = tf.image.resize_images(flow2*20.0, [opt.img_height, opt.img_width])
+            flow2r = tf.image.resize_images(flow2r*20.0, [opt.img_height, opt.img_width])
             occu_mask_1 = \
                 tf.clip_by_value(transformerFwd(tf.ones(shape=[opt.batch_size, opt.img_height, opt.img_width, 1],
                                      dtype='float32'), 
                                     flow1r, [H, W]),
                                     clip_value_min=0.0, clip_value_max=1.0)
-
+            occu_mask_2 = \
+                tf.clip_by_value(transformerFwd(tf.ones(shape=[opt.batch_size, opt.img_height, opt.img_width, 1],
+                                     dtype='float32'), 
+                                    flow2r, [H, W]),
+                                    clip_value_min=0.0, clip_value_max=1.0)
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
-            pred_disp, pred_edges, depth_net_endpoints = disp_net(tgt_image, \
+            input_stack = tf.concat([tgt_image, src_image_stack[0], src_image_stack[1]], axis=0)
+            pred_disp, pred_edges, depth_net_endpoints = disp_net(input_stack, \
                                         do_edge=(opt.edge_mask_weight > 0))
             pred_depth = [1./d for d in pred_disp]
+            pred_depth_tgt = [1./d[:opt.batch_size,:,:,:] for d in pred_disp]
+            pred_depth_src = [1./d[opt.batch_size:,:,:,:] for d in pred_disp]
 
         with tf.name_scope("pose_and_explainability_prediction"):
             pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
-                             src_image_stack, 
+                             tf.concat(src_image_stack, axis=3), 
                              do_exp=(opt.explain_reg_weight > 0))
 
         with tf.name_scope("compute_loss"):
@@ -122,6 +139,7 @@ class SfMLearner(object):
             normal_smooth_loss = 0
             img_grad_loss = 0
             edge_loss = 0
+            flow_3d_loss = 0
             tgt_image_all = []
             src_image_stack_all = []
             proj_image_stack_all = []
@@ -163,6 +181,13 @@ class SfMLearner(object):
                 # pred_depths2 = normal2depth_layer_batch(pred_depth_tensor, tf.squeeze(pred_normal), intrinsics)
                 pred_normals.append(pred_normal)
                 pred_disps2.append(pred_disp2)
+
+                flow_3d_1 = gen_3d_flow(depth_src_1, depth_tgt, flow1)
+                flow_3d_2 = gen_3d_flow(depth_tgt, depth_src_2, flow2)
+
+                flow_3d_1_c = gen_3d_flow_c(pred_poses[:,0,:], depth_src_1, inverse=True)
+                flow_3d_2_c = gen_3d_flow_c(pred_poses[:,1,:], depth_tgt)
+                
 
                 ## 1. L2 loss as edge_loss; 2. cross_entropy loss as edge_loss; 3. L1 loss as edge_loss
                 ## ref_edge_mask is all 0
@@ -912,6 +937,32 @@ class SfMLearner(object):
                                    opt.num_source * 3])
         tgt_image.set_shape([opt.img_height, opt.img_width, 3])
         return tgt_image, src_image_stack
+
+    def unpack_image_sequence_list(self, image_seq):
+        opt = self.opt
+        # Assuming the center image is the target frame
+        tgt_start_idx = int(opt.img_width * (opt.num_source//2))
+        tgt_image = tf.slice(image_seq,
+                             [0, tgt_start_idx, 0],
+                             [-1, opt.img_width, -1])
+
+        # Source fames before the target frame
+        src_image_1 = tf.slice(image_seq,
+                               [0, 0, 0],
+                               [-1, int(opt.img_width * (opt.num_source//2)), -1])
+
+        # Source frames after the target frame
+        src_image_2 = tf.slice(image_seq,
+                               [0, int(tgt_start_idx + opt.img_width), 0],
+                               [-1, int(opt.img_width * (opt.num_source//2)), -1])
+        src_image_seq = [src_image_1, src_image_2]
+
+        for src_image in src_image_seq:
+            src_image.set_shape([opt.img_height, opt.img_width, 3])
+
+        tgt_image.set_shape([opt.img_height, opt.img_width, 3])
+
+        return tgt_image, src_image_seq
 
     def get_multi_scale_intrinsics(self, raw_cam_mat, num_scales):
         proj_cam2pix = []
