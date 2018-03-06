@@ -377,6 +377,8 @@ class SfMLearner(object):
         tgt_image, proj_cam2pix_div, proj_pix2cam_div = input_splits[opt.num_source:]
 
         self.opt.batch_size_per_tower = int(opt.batch_size / num_gpu)
+        in_size = list(map(int, [self.opt.img_height/2, self.opt.img_width/2]))
+
         print ("tgt_image batch images shape:")
         print (tgt_image[0].get_shape().as_list())
 
@@ -397,7 +399,8 @@ class SfMLearner(object):
                     with tf.name_scope("depth_prediction"):
                         pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(
                                 image_stack, do_edge=(opt.edge_mask_weight > 0),
-                                reuse=False if gpu_id == 0 else True)
+                                reuse=False if gpu_id == 0 else True,
+                                in_size=in_size)
                         pred_depth = [1./d for d in pred_disp]
 
                     pred_depth_src = None
@@ -428,6 +431,7 @@ class SfMLearner(object):
                                src_depth_seq=pred_depth_src[0] if self.opt.depth4pose else None,
                                do_exp=False,
                                do_dm=False,
+                               in_size=in_size,
                                reuse=False if gpu_id == 0 else True)
 
                 with tf.name_scope("view_synthesis"):
@@ -466,6 +470,7 @@ class SfMLearner(object):
                                                     proj_image_seq,
                                                     pred_depth2,
                                                     proj_depth_seq,
+                                                    in_size=in_size,
                                               reuse=False if gpu_id == 0 else True)
                     elif opt.motion_net == 'pwc':
                         dense_motion_maps = \
@@ -473,6 +478,7 @@ class SfMLearner(object):
                                                     proj_image_seq,
                                                     pred_depth2,
                                                     proj_depth_seq,
+                                                    in_size=in_size,
                                               reuse=False if gpu_id == 0 else True)
                     else:
                         raise ValueError('No such network {}'.format(opt.motion_net))
@@ -714,6 +720,8 @@ class SfMLearner(object):
         weight_y = tf.exp(-1*alpha*tf.abs(edge))
 
         if mode == "l2":
+            # print(edge.get_shape().as_list())
+            # print(dx2.get_shape().as_list())
             # smoothness_loss = tf.reduce_mean(tf.abs(dx2 * weight_x[:,:,1:-1,:])) + \
             #               tf.reduce_mean(tf.abs(dy2 * weight_y[:,1:-1,:,:]))
             smoothness_loss = tf.reduce_mean(tf.clip_by_value(dx2 * weight_x[:,:,1:-1,:], 0.0, 10.0)) + \
@@ -794,6 +802,7 @@ class SfMLearner(object):
 
         tf.summary.image("pred_normal", (self.pred_normals[0]+1.0)/2.0)
         tf.summary.image("pred_disp2", self.pred_disps2[0])
+
         # for s in range(opt.num_scales):
         s = 0
         tf.summary.histogram("scale%d_depth" % s, self.pred_depth_tgt[s])
@@ -995,7 +1004,10 @@ class SfMLearner(object):
                             root_img_path = "/home/zhenheng/datasets/nyuv2/"
                             normal_gt_path = "/home/zhenheng/datasets/nyuv2/normals_gt/"
                             test_fn = "/home/zhenheng/datasets/nyuv2/test_file_list.txt"
-                            input_intrinsic = [[5.1885790117450188e+02, 5.1946961112127485e+02, 3.2558244941119034e+02, 2.5373616633400465e+02]]
+                            input_intrinsic = [[5.1885790117450188e+02,
+                                                5.1946961112127485e+02,
+                                                3.2558244941119034e+02,
+                                                2.5373616633400465e+02]]
                             print ("Evaluation at iter ["+str(step)+"] ")
                             abs_rel, sq_rel, rms, log_rms, a1, a2, a3, \
                             dgr_mean, dgr_median, dgr_11, dgr_22, dgr_30 = self.evaluation_depth_normal_nyu(sess, root_img_path, normal_gt_path, test_fn, input_intrinsic)
@@ -1063,8 +1075,10 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         # with tf.variable_scope('training', reuse=True):
 
+        in_size = list(map(int, [self.opt.img_height/2, self.opt.img_width/2]))
         with tf.name_scope("depth_prediction"):
-            pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(input_mc, do_edge=True)
+            pred_disp, pred_edges, depth_net_endpoints = nets.disp_net(
+                    input_mc, do_edge=True, in_size=in_size)
             pred_depth = [1. / disp for disp in pred_disp]
             pred_normal = d2n.depth2normal_layer_batch(
                     tf.squeeze(pred_depth[0], axis=3), intrinsics, False)
@@ -1095,7 +1109,9 @@ class SfMLearner(object):
         input_mc = self.preprocess_image(input_uint8)
         with tf.variable_scope('training', reuse=True):
             with tf.name_scope("depth_prediction"):
-                pred_disp, depth_net_endpoints = nets.disp_net(input_mc)
+                in_size = list(map(int, [self.opt.img_height/2-1, self.opt.img_width/2-1]))
+                pred_disp, depth_net_endpoints = nets.disp_net(input_mc,
+                        in_size=in_size)
                 pred_depth = [1./disp for disp in pred_disp]
 
         self.inputs = input_uint8
@@ -1197,6 +1213,7 @@ class SfMLearner(object):
 
 
     def get_multi_scale_intrinsics(self, raw_cam_mat, num_scales):
+
         proj_cam2pix = []
         # Scale the intrinsics accordingly for each scale
         for s in range(num_scales):
