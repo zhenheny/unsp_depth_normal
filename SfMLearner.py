@@ -15,6 +15,7 @@ from depth2normal_tf import *
 from normal2depth_tf import *
 from evaluate_kitti import *
 from evaluate_normal import *
+import prediction_model_flo_chair_ip construct_model_pwc_full
 
 class SfMLearner(object):
     def __init__(self):
@@ -89,6 +90,18 @@ class SfMLearner(object):
             print (tgt_image.get_shape().as_list())
             print ("src_image_stack shape")
             print (src_image_stack.get_shape().as_list())
+
+        ## flow prediction network
+        with tf.name_scope("flow_prediction"):
+            flow2, _, _, _, _, _ = construct_model_pwc_full(tgt_image, image2)
+            flow1 = tf.image.resize_images(flow2*20.0, [opt.img_height, opt.img_width])
+            flow1r = tf.image.resize_images(flow2r*20.0, [opt.img_height, opt.img_width])
+            occu_mask_1 = \
+                tf.clip_by_value(transformerFwd(tf.ones(shape=[opt.batch_size, opt.img_height, opt.img_width, 1],
+                                     dtype='float32'), 
+                                    flow1r, [H, W]),
+                                    clip_value_min=0.0, clip_value_max=1.0)
+
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
