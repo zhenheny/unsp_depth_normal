@@ -23,6 +23,7 @@ flags.DEFINE_float("dense_motion_weight", 0.1, "Whether or not use edge predicti
 flags.DEFINE_float("ssim_weight", 0.1, "Pixel loss computed by both pixel diff and ssim")
 flags.DEFINE_float("occ_mask", 0, "occlusion mask")
 flags.DEFINE_float("depth_consistency", 0, "if set to 1, there is a depth consistency loss")
+flags.DEFINE_float("gradient_filter_pixel_loss", 0, "if set to 1, the reconstruction error will be compensated by gradient")
 flags.DEFINE_integer("batch_size", 4, "The size of of a sample batch")
 flags.DEFINE_integer("img_height", 128, "Image height")
 flags.DEFINE_integer("img_width", 416, "Image width")

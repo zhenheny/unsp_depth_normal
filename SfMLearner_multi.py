@@ -39,6 +39,15 @@ class SfMLearner(object):
         D_dx = pred[:, :, 1:, :] - pred[:, :, :-1, :]
         return D_dx, D_dy
 
+    def gradient_weight(self, pred, alpha=0.2):
+        gradx, grady = self.gradient(pred)
+        grad = tf.sqrt(tf.square(gradx[:,1:,:,:])+tf.square(grady[:,:,1:,:]))
+        grad = tf.reduce_mean(grad, axis=3, keep_dims=True)
+        weight = tf.exp(-1*alpha*grad)
+        padding = tf.constant([[0,0],[1,0],[1,0],[0,0]])
+        weight = tf.pad(weight, padding, 'CONSTANT')
+        return weight
+
     def average_gradients(self, tower_grads):
         average_grads = []
         for grad_and_vars in zip(*tower_grads):
@@ -82,7 +91,7 @@ class SfMLearner(object):
 
     def gradient_loss(self, proj_image, tgt_image_grad):
         proj_image_grad_x, proj_image_grad_y = self.gradient(
-                                    proj_image[:, :-2, 1:-1, :])
+                                    proj_image)
         tgt_image_grad_x, tgt_image_grad_y = tgt_image_grad[0], tgt_image_grad[1]
         proj_error_grad_x = tf.abs(tgt_image_grad_x - proj_image_grad_x)
         proj_error_grad_y = tf.abs(tgt_image_grad_y - proj_image_grad_y)
@@ -190,7 +199,8 @@ class SfMLearner(object):
                     # self.compute_smooth_loss(pred_normal[:, 3:-3, 3:-3, :]))
 
         ## compute photometric loss the predicted edges
-        curr_tgt_image_grad = self.gradient(curr_tgt_image[:, :-2, 1:-1, :])
+        curr_tgt_image_grad = self.gradient(curr_tgt_image)
+        curr_tgt_image_grad_weight = self.gradient_weight(curr_tgt_image)
 
         for i in range(opt.num_source):
             # Inverse warp the source image to the target image frame
@@ -206,6 +216,10 @@ class SfMLearner(object):
 
             curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
             shifted_curr_proj_error = tf.abs(shifted_curr_proj_image - curr_tgt_image)
+
+            if opt.gradient_filter_pixel_loss > 0:
+                curr_proj_error *= curr_tgt_image_grad_weight
+                shifted_curr_proj_error *= curr_tgt_image_grad_weight
 
             # Photo-consistency loss weighted by explainability
             if opt.explain_reg_weight > 0:
