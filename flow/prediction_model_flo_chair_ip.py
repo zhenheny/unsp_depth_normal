@@ -1,3 +1,4 @@
+from __future__ import division
 # Copyright 2016 The TensorFlow Authors All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,9 +25,33 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from tensorflow.python.ops import init_ops
 from optical_flow_warp import transformer
 from optical_flow_warp_old import transformer_old
-from prediction_train_flo_learn_ip_kitti import get_pyrimad
 
 #from correlation import correlation
+def blur(image):
+  batch_size, img_height, img_width, color_channels = map(int, image.get_shape()[0:4])
+  kernel = np.array([1., 2., 1., 2., 4., 2., 1., 2., 1.], dtype=np.float32) / 16.0
+  kernel = kernel.reshape((3, 3, 1, 1))
+  kernel = tf.constant(kernel, shape=(3, 3, 1, 1), 
+                       name='gaussian_kernel', verify_shape=True)
+
+  blur_image = tf.nn.depthwise_conv2d(tf.pad(image, [[0,0], [1,1], [1,1],[0,0]], "SYMMETRIC"), tf.tile(kernel, [1, 1, color_channels, 1]), 
+                                           [1, 1, 1, 1], 'VALID')
+  return blur_image
+
+def down_sample(image, to_blur=True):
+  batch_size, img_height, img_width, color_channels = map(int, image.get_shape()[0:4])
+  if to_blur:
+    image = blur(image)
+  return tf.image.resize_bicubic(image, [int(img_height/2), int(img_width/2)])
+
+def get_pyrimad(image):
+  image2 = down_sample(down_sample(image))
+  image3 = down_sample(image2)
+  image4 = down_sample(image3)
+  image5 = down_sample(image4)
+  image6 = down_sample(image5)
+
+  return image2, image3, image4, image5, image6
 
 def resize_like(inputs, ref):
     iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]

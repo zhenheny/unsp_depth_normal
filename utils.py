@@ -807,13 +807,36 @@ def warp_occ_mask(img, depth, pose, intrinsics, intrinsics_inv):
     
     return projected_img
 
+def compute_3dpts_batch(pts, intrinsics):
+    
+    ## pts is the depth map of rank3 [batch, h, w], intrinsics is in [batch, 4]
+    pts = tf.squeeze(pts, axis=3)
+    fx, fy, cx, cy = intrinsics[:,0], intrinsics[:,1], intrinsics[:,2], intrinsics[:,3] 
+    pts_shape = pts.get_shape().as_list()
+    pts_3d = tf.zeros(pts.get_shape().as_list()+[3])
+    pts_z = pts
+    x = tf.range(0, pts.get_shape().as_list()[2])
+    x = tf.cast(x, tf.float32)
+    y = tf.range(0, pts.get_shape().as_list()[1])
+    y = tf.cast(y, tf.float32)
+    cx_tile = tf.tile(tf.expand_dims(tf.expand_dims(cx, -1), -1), [1, pts_shape[1], pts_shape[2]])
+    cy_tile = tf.tile(tf.expand_dims(tf.expand_dims(cy, -1), -1), [1, pts_shape[1], pts_shape[2]])
+    fx_tile = tf.tile(tf.expand_dims(tf.expand_dims(fx, -1), -1), [1, pts_shape[1], pts_shape[2]])
+    fy_tile = tf.tile(tf.expand_dims(tf.expand_dims(fy, -1), -1), [1, pts_shape[1], pts_shape[2]])
+    pts_x = (tf.tile(tf.expand_dims(tf.meshgrid(x, y)[0], 0), [pts_shape[0], 1, 1]) - cx_tile) / fx_tile * pts
+    pts_y = (tf.tile(tf.expand_dims(tf.meshgrid(x, y)[1], 0), [pts_shape[0], 1, 1]) - cy_tile) / fy_tile * pts
+    pts_3d = tf.concat([[pts_x], [pts_y], [pts_z]], 0)
+    pts_3d = tf.transpose(pts_3d, perm = [1,2,3,0])
+
+    return pts_3d
+
 def gen_3d_flow_c(camera_pose, depth1, intrinsics=None, inverse=False):
     # camera_pose: [B,6]
     # dense_motion: [B,H,W,3]
     # depth1: [B,H,W]
     # depth2: [B,H,W]
 
-    B, H, W = depth1.get_shape().as_list()[1:3]
+    B, H, W = depth1.get_shape().as_list()[:3]
     if intrinsics == None:
         intrinsics = tf.tile(tf.cast([[W, H, 0.5*W, 0.5*H]], tf.float32), [B,1])
     pts_3d_1 = compute_3dpts_batch(depth1, intrinsics) # [B,H,W,3]
@@ -823,7 +846,8 @@ def gen_3d_flow_c(camera_pose, depth1, intrinsics=None, inverse=False):
     pose_mat = pose_vec2mat(camera_pose) # [B,4,4]
     if inverse:
         pose_mat = tf.matrix_inverse(pose_mat)
-    pts_3d_2_hom = tf.reshape(tf.matmul(pose_mat, tf.reshape(pts_3d_1_hom, [B,H*W,4])), [B,H,W,4])
+    pts_3d_1_hom_T = tf.reshape(tf.transpose(pts_3d_1_hom, [0,3,1,2]), [B,4,H*W])
+    pts_3d_2_hom = tf.transpose(tf.reshape(tf.matmul(pose_mat, pts_3d_1_hom_T), [B,4,H,W]), [0,2,3,1])
     pts_3d_2 = pts_3d_2_hom[:,:,:,:3] / pts_3d_2_hom[:,:,:,3:]
     flow_3d = pts_3d_2 - pts_3d_1
 
