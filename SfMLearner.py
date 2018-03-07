@@ -444,6 +444,7 @@ class SfMLearner(object):
             self.flyout_map_all = flyout_map_all
             self.flow_3d_all = flow_3d_1
             self.flow_3d_c_all = flow_3d_1_c
+            self.flow_2d_all = tf.cast(tf.concat([flow1, tf.zeros(flow1.get_shape().as_list()[:3]+[1], tf.int32)],axis=3), tf.float32)
             self.pred_edges = pred_edges
 
     def get_reference_explain_mask(self, downscaling):
@@ -653,6 +654,7 @@ class SfMLearner(object):
         tf.summary.image('scale%d_edge_map' % s, self.pred_edges[s])
         tf.summary.image('flow_3d_all', self.flow_3d_all)
         tf.summary.image('flow_3d_c_all', self.flow_3d_c_all)
+        tf.summary.image('flow_2d_all', self.flow_2d_all)
         for i in range(opt.num_source):
 
             if opt.explain_reg_weight > 0:
