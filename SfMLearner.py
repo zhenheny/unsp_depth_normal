@@ -105,8 +105,8 @@ class SfMLearner(object):
             H, W = tgt_image.get_shape().as_list()[1:3]
             flow_tgt_image = (tgt_image+1.0)/2.0
             flow_src_image = [(d+1.0)/2.0 for d in src_image_stack]
-            input1 = tf.concat([src_image_stack[0], tgt_image, tgt_image, src_image_stack[1]], axis=0)
-            input2 = tf.concat([tgt_image, src_image_stack[1], src_image_stack[0], tgt_image], axis=0)
+            input1 = tf.concat([flow_src_image[0], flow_tgt_image, flow_tgt_image, flow_src_image[1]], axis=0)
+            input2 = tf.concat([flow_tgt_image, flow_src_image[1], flow_src_image[0], flow_tgt_image], axis=0)
             print("input1 shape")
             print(input1.get_shape().as_list())
             print("input2 shape")
@@ -138,8 +138,11 @@ class SfMLearner(object):
                                             do_edge=(opt.edge_mask_weight > 0))
 
                 pred_depth_tgt = [1./d[:opt.batch_size,:,:,:1] for d in pred_disp]
+                pred_disp_tgt = [d[:opt.batch_size,:,:,:1] for d in pred_disp]
                 pred_depth_src_1 = [1./d[opt.batch_size:2*opt.batch_size,:,:,:1] for d in pred_disp]
+                pred_disp_src_1 = [d[opt.batch_size:2*opt.batch_size,:,:,:1] for d in pred_disp]
                 pred_depth_src_2 = [1./d[2*opt.batch_size:,:,:,:1] for d in pred_disp]
+                pred_disp_src_2 = [d[2*opt.batch_size:,:,:,:1] for d in pred_disp]
                 pred_edges = [d[:opt.batch_size,:,:] for d in pred_edges]
 
             with tf.name_scope("pose_and_explainability_prediction"):
@@ -172,11 +175,11 @@ class SfMLearner(object):
                 print(pred_depth_src_1[0].get_shape().as_list())
                 print("shape of depth_tgt")
                 print(pred_depth_tgt[0].get_shape().as_list())
-                flow_3d_1 = gen_3d_flow(pred_depth_src_1[0], pred_depth_tgt[0], flow1)
-                flow_3d_2 = gen_3d_flow(pred_depth_tgt[0], pred_depth_src_2[0], flow2)
+                flow_3d_1 = gen_3d_flow(pred_disp_src_1[0], pred_disp_tgt[0], flow1)
+                flow_3d_2 = gen_3d_flow(pred_disp_tgt[0], pred_disp_src_2[0], flow2)
 
-                flow_3d_1_c = gen_3d_flow_c(pred_poses[:,0,:], pred_depth_src_1[0], inverse=True)
-                flow_3d_2_c = gen_3d_flow_c(pred_poses[:,1,:], pred_depth_tgt[0], inverse=False)
+                flow_3d_1_c = gen_3d_flow_c(pred_poses[:,0,:], pred_disp_src_1[0], inverse=True)
+                flow_3d_2_c = gen_3d_flow_c(pred_poses[:,1,:], pred_disp_tgt[0], inverse=False)
 
                 for s in range(opt.num_scales):
                     # Construct a reference explainability mask (i.e. all 
@@ -423,7 +426,6 @@ class SfMLearner(object):
                                                   self.global_step+1)
 
             # Collect tensors that are useful later (e.g. tf summary)
-
             self.pred_depth = pred_depth_tgt
             self.pred_disp = pred_disp
             self.pred_normals = pred_normals
@@ -445,6 +447,7 @@ class SfMLearner(object):
             self.flow_3d_all = flow_3d_1
             self.flow_3d_c_all = flow_3d_1_c
             self.flow_2d_all = tf.cast(tf.concat([flow1, tf.zeros(flow1.get_shape().as_list()[:3]+[1], tf.int32)],axis=3), tf.float32)
+            self.input1 = input1
             self.pred_edges = pred_edges
 
     def get_reference_explain_mask(self, downscaling):
@@ -702,7 +705,7 @@ class SfMLearner(object):
         disp_load_saver_vars = [var for var in tf.model_variables() if "training" in var.name]
         flow_load_saver_vars = [var for var in tf.model_variables() if "training" not in var.name]
         self.disp_load_saver = tf.train.Saver(disp_load_saver_vars + [self.global_step], max_to_keep=40)
-        self.flow_load_saver = tf.train.Saver(flow_load_saver_vars + [self.global_step], max_to_keep=40)
+        self.flow_load_saver = tf.train.Saver(flow_load_saver_vars, max_to_keep=40)
         self.saver = tf.train.Saver([var for var in tf.model_variables()] + \
                                     [self.global_step], 
                                     max_to_keep=40)
@@ -726,14 +729,20 @@ class SfMLearner(object):
                     checkpoint_disp = opt.checkpoint_disp_continue
                     checkpoint_flow = opt.checkpoint_flow_continue
                     self.disp_load_saver.restore(sess, checkpoint_disp)
-                    # self.flow_load_saver.restore(sess, checkpoint_flow)
+                    self.flow_load_saver.restore(sess, checkpoint_flow)
                 # self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
                 start_time = time.time()
                 fetches = {
                     "train": self.train_op,
                     "global_step": self.global_step,
-                    "incr_global_step": self.incr_global_step
+                    "incr_global_step": self.incr_global_step,
+                    "flow": self.flow_2d_all,
+                    "3d_flow": self.flow_3d_all,
+                    "3d_flow_c": self.flow_3d_c_all,
+                    "pred_poses": self.pred_poses,
+                    "input1": self.input1,
+                    "pred_disps": self.pred_disps2[0]
                 }
 
                 if step % opt.summary_freq == 0:
@@ -752,6 +761,12 @@ class SfMLearner(object):
 
                 results = sess.run(fetches)
                 gs = results["global_step"]
+                flow_3d = results['3d_flow']
+                flow_3d_c = results['3d_flow_c']
+                np.save('flow_3d.npy', flow_3d)
+                np.save('flow_3d_c.npy', flow_3d_c)
+                # sm.imsave('flow_3d.png', flow_3d[0,:,:,:]-flow_3d.min())
+                # sm.imsave('flow_3d_c.png', flow_3d_c[0,:,:,:]-flow_3d_c.min())
 
                 if step % opt.summary_freq == 0:
                     sv.summary_writer.add_summary(results["summary"], gs)
