@@ -13,6 +13,16 @@ from evaluate_normal import *
 from utils import *
 
 
+def post_process_disparity(disp):
+    _, h, w = disp.shape
+    l_disp = disp[0,:,:]
+    r_disp = np.fliplr(disp[1,:,:])
+    m_disp = 0.5 * (l_disp + r_disp)
+    l, _ = np.meshgrid(np.linspace(0, 1, w), np.linspace(0, 1, h))
+    l_mask = 1.0 - np.clip(20 * (l - 0.05), 0, 1)
+    r_mask = np.fliplr(l_mask)
+    return r_mask * l_disp + l_mask * r_disp + (1.0 - l_mask - r_mask) * m_disp
+
 def test_image(filename):
 
     mode = 'depth'
@@ -33,7 +43,7 @@ def test_image(filename):
         sfm.setup_inference(img_height, img_width, mode=mode)
 
     saver = tf.train.Saver([var for var in tf.trainable_variables()])
-    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
+    intrinsic = np.tile([[img_width, img_height, 0.5*img_width, 0.5*img_height]], [2,1])
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4) 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         saver.restore(sess, ckpt_file)
@@ -89,18 +99,22 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
         for i, file in enumerate(filelist):
             resize_ratio = img_height / 375.0
             if intrinsic_matrixes != []:
-                intrinsic = np.expand_dims(np.array(intrinsic_matrixes[file.split("/")[-1].split("_")[0]])[[0,4,2,5]] * resize_ratio, axis=0)
+                if file.split("/")[-1].split("_")[0] in intrinsic_matrixes:
+                    intrinsic = np.tile(np.expand_dims(np.array(intrinsic_matrixes[file.split("/")[-1].split("_")[0]])[[0,4,2,5]] * resize_ratio, axis=0), [2,1])
+                else:
+                    intrinsic = np.tile([[img_width, img_height, 0.5*img_width, 0.5*img_height]], [2,1])
             else:
                 if split == "kitti":
-                    intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
+                    intrinsic = np.tile([[img_width, img_height, 0.5*img_width, 0.5*img_height]], [2,1])
                 elif split == "cs":
                     intrinsic = [[900.0, 756.0, 445.0, 172.0]]
                 else:
                     intrinsic = [[img_width, img_height, 0.5*img_width, 0.5*img_height]]
             I = scipy.misc.imread(file)
             I = scipy.misc.imresize(I, (img_height, img_width))
-
-            pred = sfm.inference(I[None,:,:,:], intrinsic, sess, mode=mode)
+            I_stack= np.stack((I, np.fliplr(I)), axis=0)
+            print(intrinsic.shape)
+            pred = sfm.inference(I_stack, intrinsic, sess, mode=mode)
             # pred = sfm.inference(I[None,:,:,:], sess, mode=mode)
             pred_normal_np = np.squeeze(pred['normals'])
             # pred_normal_np[:,:,0], pred_normal_np[:,:,2] = pred_normal_np[:,:,2], pred_normal_np[:,:,0] 
@@ -112,8 +126,12 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             # pred_normal_np = (pred_normal_np + 1.0) / 2.0
 
             # pred = sfm.inference(I[None,:,:,:], [], sess, mode=mode)
-            pred_depths_test.append(pred['depth'][0,0:,0:,0])
-            pred_depths2_test.append(pred['depth2'][0,5:-5,5:-5,0])
+            pred_disp = 1./pred['depth']
+            pred_disp2 = 1./pred['depth2']
+            pred_depth1 = post_process_disparity(pred_disp[:,:,:,0])
+            pred_depth2 = post_process_disparity(pred_disp2[:,5:-5,5:-5,0])
+            pred_depths_test.append(pred_depth1)
+            pred_depths2_test.append(pred_depth2)
             # for s in range(4):
             #     print (pred['edges'][s].shape)
             #     edge_image = scipy.misc.imresize(np.squeeze(pred['edges'][s]), [img_height, img_width], interp="nearest")
@@ -122,7 +140,9 @@ def test_filelist(filelist, split, eval_bool, ckpt_file):
             pred_normals_test.append(pred_normal_np)
             # print(pred['edges'][0].shape)
             # scipy.misc.imsave("../eval/edge_asap_cs/%03d.jpg" % i, np.squeeze(pred['edges'][0]))
-            scipy.misc.imsave("/home/zhenheng/datasets/cityscapes/sequences_vis/sequence10/edge/%03d.jpg" % i, np.squeeze(pred['edges'][0])[:-6,:,])
+            # scipy.misc.imsave("/home/zhenheng/datasets/cityscapes/sequences_vis/sequence10/edge/%03d.jpg" % i, np.squeeze(pred['edges'][0])[:-6,:,])
+            scipy.misc.imsave("/home/zhenheng/works/kitti_depth1/%03d.jpg" % i, pred_depth1)
+            scipy.misc.imsave("/home/zhenheng/works/kitti_depth2/%03d.jpg" % i, pred_depth2)
 
     if eval_bool:
         gt_depths, pred_depths, gt_disparities = load_depths(pred_depths_test, split, root_img_path, test_fn)

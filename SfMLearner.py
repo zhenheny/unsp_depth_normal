@@ -877,7 +877,7 @@ class SfMLearner(object):
                         img_height,
                         img_width,
                         mode,
-                        batch_size=1):
+                        batch_size=2):
         self.img_height = img_height
         self.img_width = img_width
         self.mode = mode

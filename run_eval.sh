@@ -1,6 +1,6 @@
-sudo python3 -m pdb main.py --split cs \
-	--type img \
-	--ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-170002 \
+python3 main.py --split kitti \
+	--type filelist \
+	--ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_stereomono_ssim_wt1.0_depthsmooth_wedge3d_l2_alpha10_clip0_wt10_normal_wedgel2_alpha0.1_wt1.0_edge_input417_l2_deconvk4_noscaling_wt1.0_expwt0.0_sfmpy0723_depth1normal_eval/model-130002 \
 	--gpu_id 1
 	# /home/zhenheng/tf_events/unsp_depth_normal/cs_4pt0.0_noflyout_dilated2_d2nnei3_n2dedgeremove_depthsmooth_2loss_noedge_wedgel2_alpha10_clip0_wt4_normal_smooth_wt0.05_edge_lossscalefactor_input417_l2_deconvk4_nnupsample_noscaling_wt0.2_expwt0.8_sfmpy0723_depth1normal_eval_cont/model-150002 \
 # --ckpt_file /home/zhenheng/tf_events/unsp_depth_normal/d2nn2d_4pt0.0_noflyout_dilated2_d2nnei3_depthsmooth_wedgel2_alpha10_clip0_wt2_edge_l2_deconvk4_noedgeinput_noscaling_wt0.1_expwt0.4_sfmpy0723_depth1normal_eval_cont/model-80002 \
