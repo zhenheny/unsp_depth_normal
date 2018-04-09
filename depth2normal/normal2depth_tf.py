@@ -138,6 +138,7 @@ def normal2depth_layer_batch(depth_map, normal_map, intrinsics, tgt_image, nei=1
     # depth_map_y0 = (tf.clip_by_value(numerator / denominator_y0, 0.5, 2.0)+4.0) * depth_map
     # depth_map_x1 = (tf.clip_by_value(numerator / denominator_x1, 0.5, 2.0)+4.0) * depth_map
     # depth_map_y1 = (tf.clip_by_value(numerator / denominator_y1, 0.5, 2.0)+4.0) * depth_map
+    ## scaling to help training
     depth_map_x0 = (tf.sigmoid(numerator / denominator_x0 - 1.0) * 2.0 + 4.0) * depth_map
     depth_map_y0 = (tf.sigmoid(numerator / denominator_y0 - 1.0) * 2.0 + 4.0) * depth_map
     depth_map_x1 = (tf.sigmoid(numerator / denominator_x1 - 1.0) * 2.0 + 4.0) * depth_map
@@ -171,7 +172,7 @@ def normal2depth_layer_batch(depth_map, normal_map, intrinsics, tgt_image, nei=1
     img_grad_x1 = tf.pad(tgt_image[:,:,2*nei:,:] - tgt_image[:,:,nei:-1*nei,:],[[0,0],[0,0],[2*nei,0],[0,0]])
     img_grad_y1 = tf.pad(tgt_image[:,2*nei:,:,:] - tgt_image[:,nei:-1*nei,:,:],[[0,0],[2*nei,0],[0,0],[0,0]])
 
-    alpha = 0.0
+    alpha = 0.0 # weight for weighting image gradient
     weights_x0 = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(img_grad_x0), 3))
     weights_y0 = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(img_grad_y0), 3))
     weights_x1 = tf.exp(-1*alpha*tf.reduce_mean(tf.abs(img_grad_x1), 3))

@@ -51,11 +51,11 @@ class SfMLearner(object):
 
         return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
 
-    def generate_image_left(self, img, disp):
-        return bilinear_sampler_1d_h(img, -disp)
+    def generate_image_left(self, r_img, l_depth, cam2pix_l, pix2cam_l, cam2pix_r, pix2cam_r,ext_l, ext_r, tgt_img):
+        return generate_image(r_img, l_depth, pix2cam_l, cam2pix_r, ext_r, ext_l, tgt_img)
 
-    def generate_image_right(self, img, disp):
-        return bilinear_sampler_1d_h(img, disp)
+    def generate_image_right(self, l_img, r_depth, cam2pix_l, pix2cam_l, cam2pix_r, pix2cam_r,ext_l, ext_r, tgt_img):
+        return generate_image(l_img, r_depth, pix2cam_r, cam2pix_l, ext_l, ext_r, tgt_img)
 
     def build_train_graph(self):
         opt = self.opt
@@ -76,43 +76,97 @@ class SfMLearner(object):
                 file_list['cam_file_list'], 
                 seed=seed, 
                 shuffle=False)
+            right_cam_paths_queue = tf.train.string_input_producer(
+                file_list['right_cam_file_list'],
+                seed=seed,
+                shuffle=False)
+            ext_cam_paths_queue = tf.train.string_input_producer(
+                file_list['ext_cam_file_list'],
+                seed=seed,
+                shuffle=False)
+            right_ext_cam_paths_queue = tf.train.string_input_producer(
+                file_list['right_ext_cam_file_list'],
+                seed=seed,
+                shuffle=False)
+
 
             # Load sequential images
             img_reader = tf.WholeFileReader()
             _, image_contents = img_reader.read(image_paths_queue)
             image_seq = tf.image.decode_jpeg(image_contents)
             image_seq = self.preprocess_image(image_seq)
+            ratio = tf.constant(np.float32(opt.img_height) / 832.0, tf.float32)
+            image_seq = tf.squeeze(tf.image.resize_bilinear(image_seq[None,:,:,:], [opt.img_height, opt.img_width*3]))
             tgt_image, src_image_stack = \
                 self.unpack_image_sequence_list(image_seq) # here the src_image_stack is a list, each element is B,H,W,3
 
             # Load left-right images
             _, r_image_contents = img_reader.read(right_image_paths_queue)
-            r_image_seq = tf.image.decode_png(r_image_contents)
+            r_image_seq = tf.image.decode_jpeg(r_image_contents)
             r_image_seq = self.preprocess_image(r_image_seq)
             r_image_seq = tf.squeeze(tf.image.resize_bilinear(r_image_seq[None,:,:,:], [opt.img_height, opt.img_width]))
             r_image_seq.set_shape([opt.img_height, opt.img_width, 3])
 
-            # Load camera intrinsics
+            # Load camera intrinsics (both left and right)
             cam_reader = tf.TextLineReader()
             _, raw_cam_contents = cam_reader.read(cam_paths_queue)
+            _, right_raw_cam_contents = cam_reader.read(right_cam_paths_queue)
+
             rec_def = []
             for i in range(9):
                 rec_def.append([1.])
+
             raw_cam_vec = tf.decode_csv(raw_cam_contents, 
                                         record_defaults=rec_def)
-            raw_cam_vec = tf.stack(raw_cam_vec)
+            r_raw_cam_vec = tf.decode_csv(right_raw_cam_contents,
+                                        record_defaults=rec_def)
+
+            raw_cam_vec = tf.scalar_mul(ratio, tf.stack(raw_cam_vec))
             raw_cam_mat = tf.reshape(raw_cam_vec, [3, 3])
             proj_cam2pix, proj_pix2cam = self.get_multi_scale_intrinsics(
                 raw_cam_mat, opt.num_scales)
 
+            r_raw_cam_vec = tf.scalar_mul(ratio, tf.stack(r_raw_cam_vec))
+            r_raw_cam_mat = tf.reshape(r_raw_cam_vec, [3,3])
+            r_proj_cam2pix, r_proj_pix2cam = self.get_multi_scale_intrinsics(
+                r_raw_cam_mat, opt.num_scales) 
+
+            # Load camera extrinsics (both left and right)
+            ext_cam_reader = tf.TextLineReader()
+            _, ext_raw_cam_contents = ext_cam_reader.read(ext_cam_paths_queue)
+            _, right_ext_raw_cam_contents = ext_cam_reader.read(right_ext_cam_paths_queue)
+
+            rec_def = []
+            for i in range(12):
+                rec_def.append([1.])
+
+            ext_raw_cam_vec = tf.decode_csv(ext_raw_cam_contents, 
+                                        record_defaults=rec_def)
+            r_ext_raw_cam_vec = tf.decode_csv(right_ext_raw_cam_contents,
+                                        record_defaults=rec_def)
+
+            filler = tf.constant([0.0,0.0,0.0,1.0], shape=[1,4])
+            ext_raw_cam_vec = tf.stack(ext_raw_cam_vec)
+            ext_raw_cam_mat = tf.concat([tf.reshape(ext_raw_cam_vec[:9], [3, 3]), 
+                                        ext_raw_cam_vec[9:][:, None]], axis=1)
+            ext_raw_cam_mat = tf.concat([ext_raw_cam_mat,filler], axis=0)
+
+            r_ext_raw_cam_vec = tf.stack(r_ext_raw_cam_vec)
+            r_ext_raw_cam_mat = tf.concat([tf.reshape(r_ext_raw_cam_vec[:9], [3, 3]), 
+                                        r_ext_raw_cam_vec[9:][:, None]], axis=1)
+            r_ext_raw_cam_mat = tf.concat([r_ext_raw_cam_mat,filler], axis=0)
+
             # Form training batches
             input_batch = tf.train.batch(src_image_stack + \
-                            [tgt_image, r_image_seq, proj_cam2pix, proj_pix2cam],
+                            [tgt_image, r_image_seq, proj_cam2pix, proj_pix2cam,
+                            r_proj_cam2pix, r_proj_pix2cam, ext_raw_cam_mat, r_ext_raw_cam_mat],
                              batch_size=opt.batch_size,
                              num_threads=4,
-                             capacity=64)
+                             capacity=128)
             src_image_stack = input_batch[:opt.num_source]
-            tgt_image, r_image, proj_cam2pix, proj_pix2cam = input_batch[opt.num_source:]
+            tgt_image, r_image, proj_cam2pix, proj_pix2cam, \
+            r_proj_cam2pix, r_proj_pix2cam, ext_raw_cam_mat, \
+            r_ext_raw_cam_mat = input_batch[opt.num_source:]
 
             print ("tgt_image batch images shape:")
             print (tgt_image.get_shape().as_list())
@@ -120,6 +174,9 @@ class SfMLearner(object):
             print (src_image_stack[0].get_shape().as_list())
             print ("right_images shape:")
             print (r_image.get_shape().as_list())
+            print("ext_cam_mat shape:")
+            print(ext_raw_cam_mat.get_shape().as_list())
+            print(r_ext_raw_cam_mat.get_shape().as_list())
 
         ## depth prediction network
         with tf.name_scope("depth_prediction"):
@@ -131,7 +188,8 @@ class SfMLearner(object):
             pred_poses, pred_exp_logits, pose_exp_net_endpoints = \
                 pose_exp_net(tgt_image,
                              src_image_stack, 
-                             do_exp=(opt.explain_reg_weight > 0))
+                             do_exp=(opt.explain_reg_weight > 0),
+                             image_pairs=False)
 
         with tf.name_scope("compute_loss"):
             pixel_loss = 0
@@ -277,11 +335,23 @@ class SfMLearner(object):
                     curr_proj_error = tf.abs(curr_proj_image - curr_tgt_image)
 
                     # Warp the image left and right, lr consistency
-                    l_image_est = self.generate_image_left(curr_right_image, pred_disp[s][:,:,:,0])
-                    r_image_est = self.generate_image_right(curr_tgt_image, pred_disp[s][:,:,:,1])
+                    l_image_est, f_flyout = self.generate_image_left(curr_right_image, pred_depth[s][:,:,:,0], \
+                                    proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:], \
+                                    r_proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:],\
+                                    ext_raw_cam_mat, r_ext_raw_cam_mat, curr_tgt_image)
+                    r_image_est, r_flyout = self.generate_image_right(curr_tgt_image, pred_depth[s][:,:,:,1], \
+                                    proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:], \
+                                    r_proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:],\
+                                    ext_raw_cam_mat, r_ext_raw_cam_mat, curr_right_image)
 
-                    l_disp_est = self.generate_image_left(pred_disp[s][:,:,:,1:], pred_disp[s][:,:,:,0])
-                    r_disp_est = self.generate_image_right(pred_disp[s][:,:,:,:1], pred_disp[s][:,:,:,1])
+                    l_disp_est, l_disp_flyout = self.generate_image_left(pred_disp[s][:,:,:,1:], pred_depth[s][:,:,:,0], \
+                                    proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:], \
+                                    r_proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:],\
+                                    ext_raw_cam_mat, r_ext_raw_cam_mat, pred_disp[s][:,:,:,:1])
+                    r_disp_est, r_disp_flyout = self.generate_image_right(pred_disp[s][:,:,:,:1], pred_depth[s][:,:,:,1], \
+                                    proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:], \
+                                    r_proj_cam2pix[:,s,:,:], proj_pix2cam[:,s,:,:],\
+                                    ext_raw_cam_mat, r_ext_raw_cam_mat, pred_disp[s][:,:,:,1:])
 
                     l_recon_loss = tf.reduce_mean(tf.abs(l_image_est - curr_tgt_image))
                     r_recon_loss = tf.reduce_mean(tf.abs(r_image_est - curr_right_image))
@@ -729,7 +799,7 @@ class SfMLearner(object):
 
                 if step % opt.eval_freq == 0:
                     with tf.name_scope("evaluation"):
-                        dataset_name = opt.dataset_dir.split("/")[-1]
+                        dataset_name = opt.dataset_dir.split("/")[-2]
 
                         ## evaluation for kitti dataset
                         if dataset_name in ["kitti",'cityscapes']:
@@ -971,23 +1041,37 @@ class SfMLearner(object):
         return proj_cam2pix, proj_pix2cam
 
     def format_file_list(self, data_root, split):
-        with open(data_root + '/%s.txt' % "train_files_kitti_stereo", 'r') as f:
+        with open(data_root + '/%s.txt' % "train_stereo", 'r') as f:
             frames = f.readlines()
         subfolders = [x.split(' ')[0] for x in frames]
         frame_ids = [x.split(' ')[1][:-1] for x in frames]
-        image_file_list = [os.path.join(data_root, 'eigen_process_832_256', subfolders[i], 
+        image_file_list = [os.path.join(data_root, subfolders[i], 
             frame_ids[i] + '.jpg') for i in range(len(frames))]
-        date = [x.split('_drive')[0] for x in frames]
-        folders = [x.split('_sync')[0]+"_sync" for x in frames]
+        subject_ids = [x.split(" ")[0].split("/")[0] for x in frames]
+        camera_ids = [x.split(' ')[0].split("/")[-1] for x in frames]
+        for i in range(len(camera_ids)):
+            if camera_ids[i][-1] == '1':
+                camera_ids[i] = camera_ids[i].split('.')[0]+'.60457274'
+            else:
+                camera_ids[i] = camera_ids[i].split('.')[0]+'.54138969'
 
-        right_file_list = [os.path.join(data_root, date[i], folders[i], 'image_03/data', 
-            frame_ids[i] + '.png') for i in range(len(frames))]
-        cam_file_list = [os.path.join(data_root, 'eigen_process_832_256', subfolders[i], 
+        right_file_list = [os.path.join(data_root, '..', subject_ids[i], 'frames', camera_ids[i], 
+            frame_ids[i] + '.jpg') for i in range(len(frames))]
+        cam_file_list = [os.path.join(data_root, subfolders[i], 
             frame_ids[i] + '_cam.txt') for i in range(len(frames))]
+        ext_cam_file_list = [os.path.join(data_root, subfolders[i], 
+            frame_ids[i] + '_cam_ext.txt') for i in range(len(frames))]
+        right_cam_file_list = [os.path.join(data_root, subject_ids[i], 'frames', camera_ids[i],
+            frame_ids[i] + '_cam.txt') for i in range(len(frames))]
+        right_ext_cam_file_list = [os.path.join(data_root, subject_ids[i], 'frames', camera_ids[i],
+            frame_ids[i] + '_cam_ext.txt') for i in range(len(frames))]
         all_list = {}
         all_list['image_file_list'] = image_file_list
         all_list['cam_file_list'] = cam_file_list
+        all_list['ext_cam_file_list'] = ext_cam_file_list
         all_list['right_file_list'] = right_file_list
+        all_list['right_cam_file_list'] = right_cam_file_list
+        all_list['right_ext_cam_file_list'] = right_ext_cam_file_list
         return all_list
 
     def save(self, sess, checkpoint_dir, step):

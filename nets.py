@@ -24,26 +24,31 @@ def pose_exp_net(tgt_image,
                  do_dm=True,
                  is_training=True,
                  reuse=False,
-                 in_size=[128, 416]):
+                 image_pairs=False):
 
     with_depth = (tgt_depth is not None) and (src_depth_seq is not None)
-
-    # reorgnize images to pairs
-    tgt_image = tf.image.resize_bilinear(tgt_image, in_size)
-    if with_depth:
-        tgt_depth = tf.image.resize_bilinear(tgt_depth, in_size)
-
-    input_image_pairs = []
+    H, W = tgt_image.get_shape().as_list()[1:3]
+    tgt_image = tf.image.resize_bilinear(tgt_image, [H//2, W//2])
     for i in range(len(src_image_seq)):
-        src_image = tf.image.resize_bilinear(src_image_seq[i], in_size)
-        if with_depth:
-            src_depth = tf.image.resize_bilinear(src_depth_seq[i], in_size)
-            input_image_pairs.append(
-                    tf.concat([tgt_image, src_image, tgt_depth, src_depth], axis=3))
-        else:
-            input_image_pairs.append(tf.concat([tgt_image, src_image], axis=3))
+        src_image_seq[i] = tf.image.resize_bilinear(src_image_seq[i], [H//2, W//2])
 
-    inputs = tf.concat(input_image_pairs, axis=0)
+    if image_pairs:
+    ##reorgnize images to pairs
+        input_image_pairs = []
+        for i in range(len(src_image_seq)):
+            src_image = src_image_seq[i]
+            if with_depth:
+                src_depth = src_depth_seq[i]
+                input_image_pairs.append(
+                        tf.concat([tgt_image, src_image, tgt_depth, src_depth], axis=3))
+            else:
+                input_image_pairs.append(tf.concat([tgt_image, src_image], axis=3))
+        inputs = tf.concat(input_image_pairs, axis=0)
+        num_batch = inputs.get_shape().as_list()[0]//4 ## 2
+    else:
+        inputs = tf.concat([tgt_image, src_image_seq[0], src_image_seq[1]], axis=3)
+        num_batch = inputs.get_shape().as_list()[0]//4 ## 1
+
     batch_norm_params = {'is_training': is_training}
     num_source = len(src_image_seq)
 
@@ -68,7 +73,7 @@ def pose_exp_net(tgt_image,
             with tf.variable_scope('pose'):
                 cnv6  = slim.conv2d(cnv5, 256, [3, 3], stride=2, scope='cnv6')
                 cnv7  = slim.conv2d(cnv6, 256, [3, 3], stride=2, scope='cnv7')
-                pose_pred = slim.conv2d(cnv7, 6, [1, 1], scope='pred',
+                pose_pred = slim.conv2d(cnv7, 6*num_source/num_batch, [1, 1], scope='pred',
                     stride=1, normalizer_fn=None, activation_fn=None)
 
 
@@ -77,9 +82,12 @@ def pose_exp_net(tgt_image,
                 print('pose_shape {}, {}'.format(pose_avg.get_shape().as_list(), num_source))
                 # Empirically we found that scaling by a small constant
                 # facilitates training.
-                pose_avg = tf.expand_dims(pose_avg, axis=1)
-                pose_avg = tf.split(pose_avg, num_source, axis=0)
-                pose_final = 0.01 * tf.concat(pose_avg, axis=1)
+                if image_pairs:
+                    pose_avg = tf.expand_dims(pose_avg, axis=1)
+                    pose_avg = tf.split(pose_avg, num_source, axis=0)
+                    pose_final = 0.01 * tf.concat(pose_avg, axis=1)
+                else:
+                    pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
 
                 print('pose_final_shape {}'.format(pose_final.get_shape().as_list()))
 
@@ -112,73 +120,11 @@ def pose_exp_net(tgt_image,
             end_points = utils.convert_collection_to_dict(end_points_collection)
             return pose_final, [mask1, mask2, mask3, mask4], end_points
 
-def pose_exp_net_old(tgt_image, src_image_stack, do_exp=True, is_training=True):
-    H = tgt_image.get_shape()[1].value
-    W = tgt_image.get_shape()[2].value
-    tgt_image = tf.image.resize_bilinear(tgt_image, [128, 416])
-    src_image_stack = tf.image.resize_bilinear(src_image_stack, [128, 416])
-    inputs = tf.concat([tgt_image, src_image_stack], axis=3)
-    batch_norm_params = {'is_training': is_training}
-    num_source = int(src_image_stack.get_shape()[3].value//3)
-    with tf.variable_scope('pose_exp_net') as sc:
-        end_points_collection = sc.original_name_scope + '_end_points'
-        with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],
-                            # normalizer_fn = None,
-                            normalizer_fn=slim.batch_norm,
-                            normalizer_params=batch_norm_params,
-                            weights_regularizer=slim.l2_regularizer(0.05),
-                            activation_fn=tf.nn.relu,
-                            outputs_collections=end_points_collection):
-            # cnv1 to cnv5b are shared between pose and explainability prediction
-            cnv1  = slim.conv2d(inputs,16,  [7, 7], stride=1, scope='cnv1')
-            cnv2  = slim.conv2d(cnv1, 32,  [5, 5], stride=2, scope='cnv2')
-            cnv3  = slim.conv2d(cnv2, 64,  [3, 3], stride=2, scope='cnv3')
-            cnv4  = slim.conv2d(cnv3, 128, [3, 3], stride=2, scope='cnv4')
-            cnv5  = slim.conv2d(cnv4, 256, [3, 3], stride=2, scope='cnv5')
-            # Pose specific layers
-            with tf.variable_scope('pose'):
-                cnv6  = slim.conv2d(cnv5, 256, [3, 3], stride=2, scope='cnv6')
-                cnv7  = slim.conv2d(cnv6, 256, [3, 3], stride=2, scope='cnv7')
-                pose_pred = slim.conv2d(cnv7, 6*num_source, [1, 1], scope='pred', 
-                    stride=1, normalizer_fn=None, activation_fn=None)
-                pose_avg = tf.reduce_mean(pose_pred, [1, 2])
-                # Empirically we found that scaling by a small constant 
-                # facilitates training.
-                pose_final = 0.01 * tf.reshape(pose_avg, [-1, num_source, 6])
-            # Exp mask specific layers
-            if do_exp:
-                with tf.variable_scope('exp'):
-                    upcnv5 = slim.conv2d_transpose(cnv5, 256, [3, 3], stride=2, scope='upcnv5')
-
-                    upcnv4 = slim.conv2d_transpose(upcnv5, 128, [3, 3], stride=2, scope='upcnv4')
-                    mask4 = slim.conv2d(upcnv4, num_source * 2, [3, 3], stride=1, scope='mask4', 
-                        normalizer_fn=None, activation_fn=None)
-
-                    upcnv3 = slim.conv2d_transpose(upcnv4, 64,  [3, 3], stride=2, scope='upcnv3')
-                    mask3 = slim.conv2d(upcnv3, num_source * 2, [3, 3], stride=1, scope='mask3', 
-                        normalizer_fn=None, activation_fn=None)
-                    
-                    upcnv2 = slim.conv2d_transpose(upcnv3, 32,  [5, 5], stride=2, scope='upcnv2')
-                    mask2 = slim.conv2d(upcnv2, num_source * 2, [5, 5], stride=1, scope='mask2', 
-                        normalizer_fn=None, activation_fn=None)
-
-                    upcnv1 = slim.conv2d_transpose(upcnv2, 16,  [7, 7], stride=2, scope='upcnv1')
-                    mask1 = slim.conv2d(upcnv1, num_source * 2, [7, 7], stride=1, scope='mask1', 
-                        normalizer_fn=None, activation_fn=None)
-            else:
-                mask1 = None
-                mask2 = None
-                mask3 = None
-                mask4 = None
-
-            end_points = utils.convert_collection_to_dict(end_points_collection)
-            return pose_final, [mask1, mask2, mask3, mask4], end_points
-
 def disp_net(tgt_image, is_training=True, do_edge=False):
     batch_norm_params = {'is_training': is_training, 'decay':0.999}
     H = tgt_image.get_shape()[1].value
     W = tgt_image.get_shape()[2].value
-    tgt_image = tf.image.resize_bilinear(tgt_image, [127, 415]) 
+    tgt_image = tf.image.resize_bilinear(tgt_image, [H//2-1, W//2-1]) ## resize the input image to match the dilation rate
     with tf.variable_scope('depth_net') as sc:
         end_points_collection = sc.original_name_scope + '_end_points'
         with slim.arg_scope([slim.conv2d, slim.conv2d_transpose],

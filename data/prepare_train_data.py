@@ -119,25 +119,43 @@ def main():
     if not os.path.exists(dump_root):
         os.makedirs(dump_root)
 
-    Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n, dump_root) for n in range(data_loader.num_train))
+    # Parallel(n_jobs=args.num_threads)(delayed(dump_example)(n, dump_root) for n in range(data_loader.num_train))
     # for n in range(data_loader.num_train):
     #     dump_example(n, dump_root)
 
     # Split into train/val
     np.random.seed(8964)
-    subfolders = os.listdir(dump_root)
-    with open(dump_root + '/train.txt', 'w') as tf:
-        with open(dump_root + '/val.txt', 'w') as vf:
-            for s in subfolders:
-                if not os.path.isdir(dump_root + '/%s' % s):
-                    continue
-                imfiles = glob(os.path.join(dump_root, s, '*.jpg'))
-                frame_ids = [os.path.basename(fi).split('.jpg')[0] for fi in imfiles]
-                for frame in frame_ids:
-                    if np.random.random() < 0.1:
-                        vf.write('%s %s\n' % (s, frame))
-                    else:
-                        tf.write('%s %s\n' % (s, frame))
+    if args.dataset_name != 'h36m':
+        subfolders = os.listdir(dump_root)
+        with open(dump_root + '/train.txt', 'w') as tf:
+            with open(dump_root + '/val.txt', 'w') as vf:
+                for s in subfolders:
+                    if not os.path.isdir(dump_root + '/%s' % s):
+                        continue
+                    imfiles = glob(os.path.join(dump_root, s, '*.jpg'))
+                    frame_ids = [os.path.basename(fi).split('.jpg')[0] for fi in imfiles]
+                    for frame in frame_ids:
+                        if np.random.random() < 0.1:
+                            vf.write('%s %s\n' % (s, frame))
+                        else:
+                            tf.write('%s %s\n' % (s, frame))
+    else:
+        subjects = os.listdir(dump_root)
+        with open(dump_root + '/train.txt', 'w') as tf:
+            with open(dump_root + '/val.txt', 'w') as vf:
+                for s in subjects:
+                    if not os.path.isdir(dump_root + '/%s' % s):
+                        continue
+                    videos = os.listdir(dump_root+'/%s/frames/' % s)
+                    for video in videos:
+                        imfiles = glob(os.path.join(dump_root, s, 'frames', video, '*.jpg'))
+                        frame_ids = [os.path.basename(fi).split('.jpg')[0] for fi in imfiles]
+                        for frame in frame_ids:
+                            if np.random.random() < 0.1:
+                                vf.write('%s/frames/%s %s\n' % (s, video, frame))
+                            else:
+                                tf.write('%s/frames/%s %s\n' % (s, video, frame))
+
 
 main()
 
