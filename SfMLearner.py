@@ -1042,7 +1042,7 @@ class SfMLearner(object):
         return proj_cam2pix, proj_pix2cam
 
     def format_file_list(self, data_root, split):
-        with open(data_root + '/%s.txt' % "train_stereo", 'r') as f:
+        with open(data_root + '/%s.txt' % "train_stereo2", 'r') as f:
             frames = f.readlines()
         subfolders = [x.split(' ')[0] for x in frames]
         frame_ids = [x.split(' ')[1][:-1] for x in frames]
