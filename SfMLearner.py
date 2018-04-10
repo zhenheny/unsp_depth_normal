@@ -678,13 +678,14 @@ class SfMLearner(object):
                 print("Resume training from previous checkpoint")
                 if opt.checkpoint_continue == "":
                     checkpoint = tf.train.latest_checkpoint(opt.checkpoint_dir)
-                    checkpoint = opt.checkpoint_dir + "/model.latest"
+                    # checkpoint = opt.checkpoint_dir + "/model.latest"
                     self.saver.restore(sess, checkpoint)
                 else:
                     checkpoint = opt.checkpoint_continue
                     self.load_saver.restore(sess, checkpoint)
                 # self.saver.restore(sess, checkpoint)
             for step in range(0, opt.max_steps):
+                print("step: %d" % step)
                 start_time = time.time()
                 fetches = {
                     "train": self.train_op,
@@ -877,7 +878,7 @@ class SfMLearner(object):
                         img_height,
                         img_width,
                         mode,
-                        batch_size=2):
+                        batch_size=1):
         self.img_height = img_height
         self.img_width = img_width
         self.mode = mode
